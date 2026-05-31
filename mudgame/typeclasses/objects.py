@@ -26,6 +26,12 @@ class Corpse(DefaultObject):
     def loot(self, looter: DefaultObject) -> None:
         """Transfer all contents and coin to looter, then delete this corpse."""
         for item in list(self.contents):
+            # Re-home to the looter before moving. A corpse's contents may
+            # still name a now-deleted owner as their home (hardcore death
+            # deletes the character), and Evennia dereferences `home` during
+            # teleport/cleanup — a dangling reference makes the move fail and
+            # the later self.delete() raise ObjectDoesNotExist.
+            item.home = looter
             item.move_to(looter, quiet=True)
         looter.db.coin = (looter.db.coin or 0) + (self.db.coin or 0)
         self.db.coin = 0

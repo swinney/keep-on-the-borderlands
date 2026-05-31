@@ -10,8 +10,11 @@ Un-skipped progressively across M3 tasks:
 from __future__ import annotations
 
 import pytest
+from evennia.objects.models import ObjectDB
+from evennia.server.models import ServerConfig
 from evennia.utils import create
 
+from world.leaderboard import get_fell_entries
 from world.rules.progression import xp_for_level
 from world.rules.saves import CharacterClass
 
@@ -221,14 +224,62 @@ def test_default_corpse_persists_until_looted_or_reset() -> None:
 # ── M3 task 3: Hardcore deletion + leaderboard (not yet implemented) ───────
 
 
-@pytest.mark.skip(reason="M3 task 3: hardcore deletion not yet implemented")
+@pytest.mark.django_db
 def test_hardcore_death_deletes_character() -> None:
     """WHEN a hardcore character dies THEN the character is deleted and does not return."""
+    room = create.create_object("typeclasses.rooms.Room", key="dt-room-hd1")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter",
+        key="dt-hc-del1",
+        location=room,
+    )
+    char_pk = char.pk
+    try:
+        char.traits.hp.base = 5
+        char.traits.hp.current = 5
+        char.db.hardcore = True
+        char.apply_damage(5)
+        assert not ObjectDB.objects.filter(pk=char_pk).exists()
+    finally:
+        for obj in list(room.contents):
+            for child in list(obj.contents):
+                child.delete()
+            obj.delete()
+        room.delete()
 
 
-@pytest.mark.skip(reason="M3 task 3: leaderboard not yet implemented")
+@pytest.mark.django_db
 def test_hardcore_death_appends_leaderboard_entry() -> None:
     """WHEN a hardcore character dies THEN a fell entry with final level and season is appended."""
+    ServerConfig.objects.conf("leaderboard_fell", delete=True)
+
+    room = create.create_object("typeclasses.rooms.Room", key="dt-room-lb1")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter",
+        key="dt-hc-lb1",
+        location=room,
+    )
+    try:
+        char.db.char_class = CharacterClass.FIGHTER
+        char.traits.level.base = 5
+        char.traits.hp.base = 5
+        char.traits.hp.current = 5
+        char.db.hardcore = True
+        char.apply_damage(5)
+        entries = get_fell_entries()
+        assert len(entries) >= 1
+        entry = entries[-1]
+        assert entry["name"] == "dt-hc-lb1"
+        assert entry["level"] == 5
+        assert "season" in entry
+        assert "class" in entry
+    finally:
+        ServerConfig.objects.conf("leaderboard_fell", delete=True)
+        for obj in list(room.contents):
+            for child in list(obj.contents):
+                child.delete()
+            obj.delete()
+        room.delete()
 
 
 @pytest.mark.django_db

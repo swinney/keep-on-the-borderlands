@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
+import evennia
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.objects.objects import DefaultCharacter
+from evennia.server.models import ServerConfig
 from evennia.utils import create, lazy_property
 from evennia.utils.search import search_object_by_tag
 
+from world.leaderboard import append_fell
 from world.rules.abilities import ability_modifier
 from world.rules.combat import armor_class, is_dead
 from world.rules.progression import xp_for_level
@@ -67,6 +72,10 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         corpse.db.owner_key = self.key
         for item in list(self.contents):
             item.move_to(corpse, quiet=True)
+            # Re-home gear to the death room: the owner may be deleted
+            # (hardcore), and items must not reference a tombstoned home or
+            # any later relocation/cleanup will raise ObjectDoesNotExist.
+            item.home = self.location
         corpse.db.coin = self.db.coin or 0
         self.db.coin = 0
 
@@ -92,14 +101,37 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         self.traits.hp.current = 1  # type: ignore[union-attr]
         self.db.memorized_spells = []
 
+    def _hardcore_death(self) -> None:
+        """Leaderboard entry + broadcast + deletion (specs/death.md §3)."""
+        name = self.key
+        char_class = self.db.char_class
+        class_name: str = char_class.value if char_class is not None else "unknown"
+        final_level = int(self.traits.level.value)  # type: ignore[union-attr]
+        season: int = ServerConfig.objects.conf("current_season", default=1) or 1
+
+        entry: dict[str, object] = {
+            "name": name,
+            "class": class_name,
+            "level": final_level,
+            "season": season,
+            "recorded_at": datetime.now(tz=UTC).isoformat(),
+        }
+        append_fell(entry)
+
+        message = f"{name} the {class_name} has fallen at level {final_level}, season {season}."
+        if evennia.SESSION_HANDLER is not None:
+            for session in evennia.SESSION_HANDLER.get_sessions():
+                session.msg(message)
+
+        self.delete()
+
     def at_death(self) -> None:
         """Full death dispatch (specs/death.md §1)."""
         if self.location:
             self.location.msg_contents(f"{self.key} has been slain!", exclude=[])
         self._create_corpse()
         if self.db.hardcore:
-            # Hardcore: leaderboard + broadcast + delete (M3 tasks 3/4)
-            pass
+            self._hardcore_death()
         else:
             self._default_death()
 

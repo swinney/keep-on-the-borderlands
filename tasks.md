@@ -66,7 +66,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 
 - [x] Corpse object creation at death location with full gear
 - [x] Default death: XP loss to start of current level; recall-revive at Inner Bailey
-- [ ] Hardcore: opt-in flag at creation (irrevocable), deletion on death, leaderboard `fell` entry
+- [x] Hardcore: opt-in flag at creation (irrevocable), deletion on death, leaderboard `fell` entry
 - [ ] Who-list / title marker for hardcore characters; `tests/death` green (M3 exit)
 
 - [ ] ⛔ MILESTONE GATE (M3 → M4 review). When every M3 box above is checked,
