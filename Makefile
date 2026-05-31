@@ -12,8 +12,11 @@ CLAUDE_DIR := $(WORKSPACE)/.ralph/claude-home
 #                     owned by you on the host (bind mounts Just Work).
 #   -v claude-home    persists Claude Code's auth across runs.
 #   -v workspace      the project tree.
+#   -e RALPH_MODEL    forwards the host RALPH_MODEL (if set) so the loop can run
+#                     on a chosen model, e.g. RALPH_MODEL=claude-sonnet-4-6 make loop
 RUN_FLAGS := \
   --userns=keep-id \
+  -e RALPH_MODEL \
   -v $(WORKSPACE):/workspace \
   -v $(CLAUDE_DIR):/home/claude/.claude
 
@@ -56,7 +59,7 @@ loop-once:
 	  $(RUN_FLAGS) \
 	  --name kotb-ralph-once \
 	  $(IMAGE) \
-	  bash -c 'claude -p --dangerously-skip-permissions < PROMPT.md'
+	  ./scripts/ralph.sh --once
 
 shell:
 	@mkdir -p $(CLAUDE_DIR)
