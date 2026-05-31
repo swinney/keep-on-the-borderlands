@@ -62,6 +62,11 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [ ] Minimal Vancian spells: light, magic missile, cure light wounds, detect evil; `cast` + memorization-on-rest
 - [ ] 0 HP triggers a death handoff stub; `tests/combat` engine scenarios green (M2 exit)
 
+- [ ] ⛔ MILESTONE GATE (M2 → M3 review). When every M2 box above is checked,
+  do NOT begin M3. As your entire action this turn, write the single line
+  `M2 complete — paused for human review before M3.`
+  to `STATUS.md` and stop. Make no code changes and do not check this box.
+
 ## M3 — Death & hardcore
 
 - [ ] Corpse object creation at death location with full gear
