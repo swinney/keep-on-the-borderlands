@@ -13,7 +13,11 @@ natural-20/natural-1 edges — is exercised deterministically without seeding.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any
+
 _D20_MIN, _D20_MAX = 1, 20
+_D6_MIN, _D6_MAX = 1, 6
 
 
 def armor_class(*, dex_modifier: int, armor_bonus: int = 0, shield_bonus: int = 0) -> int:
@@ -69,6 +73,34 @@ def melee_damage(*, weapon_roll: int, str_modifier: int) -> int:
 def missile_damage(*, weapon_roll: int) -> int:
     """Missile damage: ``max(1, weapon_roll)`` — no STR modifier (§4.1)."""
     return max(1, weapon_roll)
+
+
+def initiative_roll(*, dex_modifier: int, d6: int) -> int:
+    """Individual initiative: ``d6 + DEX modifier`` (§4, spec combat.md).
+
+    Raises ``ValueError`` if ``d6`` is outside ``1..6``.
+    """
+    if not _D6_MIN <= d6 <= _D6_MAX:
+        raise ValueError(f"d6 face must be in 1..6, got {d6}")
+    return d6 + dex_modifier
+
+
+def initiative_order(
+    entries: Sequence[tuple[Any, int, int]],
+) -> list[tuple[Any, int, int]]:
+    """Sort combatants by descending initiative total, tie-broken by descending DEX.
+
+    Each entry is ``(combatant, dex_modifier, d6_roll)``. Returns a new list
+    ordered highest-initiative-first. Ties in the summed total are resolved by
+    the raw DEX modifier (higher DEX acts earlier); remaining ties are left in
+    stable input order so the caller can apply a coin-flip if desired.
+    """
+    return sorted(entries, key=lambda e: (-(e[2] + e[1]), -e[1]))
+
+
+def is_dead(current_hp: int) -> bool:
+    """Return True when a combatant is at or below 0 HP (§4.2, no bleed-out in v1)."""
+    return current_hp <= 0
 
 
 _2D6_MIN, _2D6_MAX = 2, 12

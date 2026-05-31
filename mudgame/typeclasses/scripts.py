@@ -12,7 +12,19 @@ just overloads its hooks to have it perform its function.
 
 """
 
+from __future__ import annotations
+
+import contextlib
+import random
+from typing import Any
+
 from evennia.scripts.scripts import DefaultScript
+
+from world.rules import dice
+from world.rules.abilities import ability_modifier
+from world.rules.combat import initiative_order, initiative_roll
+
+_MIN_COMBATANTS = 2
 
 
 class Script(DefaultScript):
@@ -101,3 +113,59 @@ class Script(DefaultScript):
     """
 
     pass
+
+
+class CombatHandler(DefaultScript):
+    """Ticker-driven round loop for one combat encounter (§4, spec combat.md).
+
+    One CombatHandler exists per active combat. It fires every 6 seconds,
+    rolls individual initiative for all living combatants, announces the order,
+    and stops itself when fewer than two combatants remain alive.
+    """
+
+    def at_script_creation(self) -> None:
+        self.key = "combat_handler"
+        self.desc = "Manages one combat encounter round loop."
+        self.interval = 6
+        self.persistent = True
+        self.start_delay = True
+        self.db.combatants = []
+
+    def is_valid(self) -> bool:
+        alive = [c for c in (self.db.combatants or []) if c and int(c.traits.hp.value) > 0]
+        return len(alive) >= _MIN_COMBATANTS
+
+    def add_combatant(self, combatant: Any) -> None:
+        if combatant not in self.db.combatants:
+            self.db.combatants.append(combatant)
+
+    def remove_combatant(self, combatant: Any) -> None:
+        with contextlib.suppress(ValueError):
+            self.db.combatants.remove(combatant)
+
+    def at_repeat(self) -> None:
+        combatants: list[Any] = self.db.combatants or []
+        alive = [c for c in combatants if c and int(c.traits.hp.value) > 0]
+        if len(alive) < _MIN_COMBATANTS:
+            self.stop()
+            return
+
+        rng = random.Random()
+        entries: list[tuple[Any, int, int]] = []
+        for combatant in alive:
+            dex_score: int = int(combatant.traits.dex.value)
+            dex_mod = ability_modifier(dex_score)
+            d6 = dice.roll("1d6", rng=rng)
+            entries.append((combatant, dex_mod, d6))
+
+        # initiative_order leaves exact (total, DEX) ties in input order, so
+        # shuffle first — that randomises those ties (the spec's coin-flip).
+        rng.shuffle(entries)
+        ordered = initiative_order(entries)
+        for combatant, dex_mod, d6 in ordered:
+            roll_val = initiative_roll(dex_modifier=dex_mod, d6=d6)
+            if combatant.location:
+                combatant.location.msg_contents(
+                    f"{combatant.key} acts (initiative {roll_val}).",
+                    exclude=[],
+                )

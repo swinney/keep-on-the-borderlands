@@ -44,8 +44,8 @@ RUN pip install --no-cache-dir \
         pytest \
         pytest-django \
         pytest-cov \
-        mypy \
-        ruff \
+        mypy==2.1.0 \
+        ruff==0.15.15 \
         pre-commit
 
 # Non-root user. With rootless Podman the in-container UID is remapped

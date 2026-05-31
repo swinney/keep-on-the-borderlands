@@ -12,7 +12,8 @@ without explicit user input.
 - Phased build plan (milestones) → `docs/build-plan.md`
 - OpenSpec prompt (already executed) → `keep-on-borderlands-openspec-prompt.md` + `openspec/`
 - Resolved open questions → `docs/open-questions.md`; escalations → `docs/questions.md`
-- Decision records → `docs/decisions/` (ADRs `0001`–`0003`, `rejected-alternatives.md`)
+- Decision records → `docs/decisions/` (ADRs `0001`–`0004`, `rejected-alternatives.md`)
+- Ralph Loop field log (lifecycle / retrospective) → `docs/ralph-loop-experiment.md`
 - Last loop-exit reason → `STATUS.md`
 
 ---

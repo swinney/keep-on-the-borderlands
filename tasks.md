@@ -56,11 +56,11 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 ## M2 — Combat on the engine
 
 - [x] Restore the mypy `evennia.*`/`django.*` override; wire `pytest-django` (`DJANGO_SETTINGS_MODULE`) for engine tests
-- [ ] `Character`/`Mob` typeclasses; wire AC/HP/abilities onto traits
-- [ ] Ticker-driven round loop + individual initiative
-- [ ] `attack` command + a target-dummy mob
-- [ ] Minimal Vancian spells: light, magic missile, cure light wounds, detect evil; `cast` + memorization-on-rest
-- [ ] 0 HP triggers a death handoff stub; `tests/combat` engine scenarios green (M2 exit)
+- [x] `Character`/`Mob` typeclasses; wire AC/HP/abilities onto traits
+- [x] Ticker-driven round loop + individual initiative
+- [x] `attack` command + a target-dummy mob
+- [x] Minimal Vancian spells: light, magic missile, cure light wounds, detect evil; `cast` + memorization-on-rest
+- [x] 0 HP triggers a death handoff stub; `tests/combat` engine scenarios green (M2 exit)
 
 ## M3 — Death & hardcore
 
@@ -152,6 +152,15 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [ ] 50-player <100ms command-latency measurement (acceptance criterion)
 - [ ] Web-client theming + MOTD
 - [ ] Encounter-table tuning; all OpenSpec acceptance criteria demonstrably met (M14 exit)
+
+## Deferred follow-ups
+
+- [ ] **Spell disruption via combat-round timing** (combat.md §5): make `cast`
+  *declare* a spell (set `spell_declaring`) and resolve it at end of round via
+  the `CombatHandler`, so damage taken before resolution disrupts it. M2 shipped
+  the `apply_damage` hook but left it inert (synchronous casting never declares);
+  this needs the round loop's declare→resolve phases. Re-enables the skipped
+  `tests/combat/test_combat.py::test_damage_disrupts_unresolved_cast`.
 
 ---
 
