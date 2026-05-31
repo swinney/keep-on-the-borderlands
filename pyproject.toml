@@ -25,6 +25,10 @@ dev = [
   "pytest-django",  # needed once tests boot Django/Evennia (M2+); harmless until then
   "pre-commit",
 ]
+# Documentation site (MkDocs + Material). Built in CI and published to Pages.
+docs = [
+  "mkdocs-material",
+]
 
 [build-system]
 requires = ["setuptools>=68"]

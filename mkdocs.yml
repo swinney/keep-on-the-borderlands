@@ -1,0 +1,73 @@
+site_name: Keep on the Borderlands
+site_description: An open-source persistent multiplayer MUD adapting B2, built with a Ralph Loop
+repo_url: https://github.com/swinney/keep-on-the-borderlands
+repo_name: swinney/keep-on-the-borderlands
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: amber
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+
+# Internal process logs aren't part of the published site.
+exclude_docs: |
+  phases/
+  questions.md
+
+# The specs were authored with repo-relative paths; keep link validation at
+# "warn" for now so the site builds, and tighten to strict once links are
+# normalized to MkDocs-relative.
+validation:
+  nav:
+    omitted_files: warn
+  links:
+    not_found: warn
+    unrecognized_links: warn
+
+nav:
+  - Home: index.md
+  - The Ralph Loop:
+      - Experiment field log: ralph-loop-experiment.md
+      - Loop strategy & container: ralph-loop.md
+      - Build plan: build-plan.md
+  - Architecture: architecture.md
+  - Specifications:
+      - Combat & characters: specs/combat.md
+      - Factions: specs/faction.md
+      - Tribe-scoped repop: specs/repop.md
+      - Henchmen: specs/henchmen.md
+      - Seasonal reset: specs/seasonal-reset.md
+      - Disguised priest: specs/disguised-priest.md
+      - Death & hardcore: specs/death.md
+      - Quests: specs/quests.md
+      - Zones (overview): specs/zones.md
+      - Scaffolding: specs/scaffolding.md
+      - "Zone — The Keep": specs/zones/keep.md
+      - "Zone — Wilderness": specs/zones/wilderness.md
+      - "Zone — Caves of Chaos": specs/zones/caves.md
+      - "Zone — Shrine of Evil Chaos": specs/zones/shrine.md
+      - "Zone — Cave of the Unknown": specs/zones/unknown.md
+  - Decisions:
+      - 0001 — Container runtime: decisions/0001-container-runtime.md
+      - 0002 — Claude auth: decisions/0002-claude-auth.md
+      - 0003 — Host Python environment: decisions/0003-host-python-environment.md
+      - 0004 — Source layout & tooling boundary: decisions/0004-source-layout-and-tooling-boundary.md
+      - Rejected alternatives: decisions/rejected-alternatives.md
+  - Open questions (resolved): open-questions.md

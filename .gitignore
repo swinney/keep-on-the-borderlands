@@ -29,3 +29,7 @@ htmlcov/
 *.sqlite3
 server.log
 *.log
+
+# MkDocs build output (published to Pages by CI, never committed).
+site/
+.cache/
