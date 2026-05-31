@@ -77,7 +77,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] `faction_manager` global Script: per-player standing + per-pair tension bands
 - [x] Event deltas (e.g. kill-count shifts) + decay over time
 - [x] NPC aggression binding from standing; `consider` command
-- [ ] `tests/faction` green, incl. shared-enemy thaw arithmetic (M4 exit)
+- [x] `tests/faction` green, incl. shared-enemy thaw arithmetic (M4 exit)
 
 - [ ] ⛔ MILESTONE GATE (M4 → M5 review). When every M4 box above is checked,
   do NOT begin M5. As your entire action this turn, write the single line
