@@ -69,6 +69,11 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [ ] Hardcore: opt-in flag at creation (irrevocable), deletion on death, leaderboard `fell` entry
 - [ ] Who-list / title marker for hardcore characters; `tests/death` green (M3 exit)
 
+- [ ] ⛔ MILESTONE GATE (M3 → M4 review). When every M3 box above is checked,
+  do NOT begin M4. As your entire action this turn, write the single line
+  `M3 complete — paused for human review before M4.`
+  to `STATUS.md` and stop. Make no code changes and do not check this box.
+
 ## M4 — Faction state machine
 
 - [ ] `world/factions/config.py`: tribes, initial pair-states, thresholds (single tuning file)
