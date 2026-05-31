@@ -60,6 +60,27 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         # until the clothing-contrib equipment lands).
         return armor_class(dex_modifier=ability_modifier(dex_score))
 
+    @property
+    def hardcore(self) -> bool:
+        """Whether this character is on the irrevocable hardcore path (death.md §4)."""
+        return bool(self.db.hardcore)
+
+    @hardcore.setter
+    def hardcore(self, value: bool) -> None:
+        # Irrevocable (death.md §4): the flag may be turned ON (opt-in at
+        # creation) but never cleared. An attempt to set it False is ignored.
+        if value:
+            self.db.hardcore = True
+
+    def enable_hardcore(self) -> None:
+        """Opt this character into hardcore permadeath at creation. Irrevocable."""
+        self.hardcore = True
+
+    def get_display_name(self, looker: object | None = None, **kwargs: object) -> str:
+        """Prefix a `[HC]` marker for hardcore characters (who-list/title, death.md §4)."""
+        name: str = super().get_display_name(looker, **kwargs)
+        return f"[HC] {name}" if self.hardcore else name
+
     def _create_corpse(self) -> None:
         """Create a Corpse in the current room holding all gear and carried coin."""
         if not self.location:
@@ -130,7 +151,7 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         if self.location:
             self.location.msg_contents(f"{self.key} has been slain!", exclude=[])
         self._create_corpse()
-        if self.db.hardcore:
+        if self.hardcore:
             self._hardcore_death()
         else:
             self._default_death()

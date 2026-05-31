@@ -321,6 +321,33 @@ def test_hardcore_death_drops_lootable_corpse() -> None:
 # ── M3 task 4: Who-list marker (not yet implemented) ───────────────────────
 
 
-@pytest.mark.skip(reason="M3 task 4: who-list marker not yet implemented")
+@pytest.mark.django_db
 def test_hardcore_flag_irrevocable_and_marked() -> None:
     """WHEN clearing the hardcore flag is attempted THEN it remains set and shows on who."""
+    room = create.create_object("typeclasses.rooms.Room", key="dt-room-hcvis")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter",
+        key="dt-hc-vis",
+        location=room,
+    )
+    normal = create.create_object(
+        "typeclasses.characters.PlayerCharacter",
+        key="dt-normal-vis",
+        location=room,
+    )
+    try:
+        char.enable_hardcore()
+        assert char.hardcore is True
+
+        # Irrevocable (death.md §4): the flag may be turned on at creation but
+        # no setter path clears it — an attempt to set it False is ignored.
+        char.hardcore = False
+        assert char.hardcore is True
+
+        # Who-list / title marker present for hardcore, absent for normal.
+        assert "[HC]" in char.get_display_name(char)
+        assert "[HC]" not in normal.get_display_name(normal)
+    finally:
+        for obj in list(room.contents):
+            obj.delete()
+        room.delete()
