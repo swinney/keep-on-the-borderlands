@@ -40,7 +40,10 @@ packages = []
 line-length = 100
 target-version = "py312"
 extend-exclude = [
-  "mudgame",   # Evennia's `evennia --init` output; treat as vendored
+  # Only Evennia-generated plumbing we don't author (ADR 0004). First-party
+  # code under mudgame/ — world/, typeclasses/, commands/ — IS linted.
+  "mudgame/server",
+  "mudgame/web",
   ".ralph",
 ]
 
@@ -75,10 +78,12 @@ warn_redundant_casts = true
 warn_return_any = true
 disallow_untyped_decorators = true
 
-# Grow this list as the loop creates first-party packages.
-# Evennia's `mudgame/` output is intentionally excluded — Django magic +
-# auto-generated code is not ours to type-police.
-files = ["tests"]
+# Strict scope = pure, Evennia-free first-party modules only (ADR 0004). Grow
+# this list as new pure modules land. Evennia-coupled code (typeclasses,
+# managers, commands) stays OUT of strict scope: its untyped base classes make
+# --strict intractable. Restore the evennia/django override below at M2, when
+# first-party code first imports evennia.
+files = ["tests", "mudgame/world/rules"]
 
 # Once first-party code imports Evennia/Django, restore this override:
 #   [[tool.mypy.overrides]]
