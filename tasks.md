@@ -58,8 +58,8 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Restore the mypy `evennia.*`/`django.*` override; wire `pytest-django` (`DJANGO_SETTINGS_MODULE`) for engine tests
 - [x] `Character`/`Mob` typeclasses; wire AC/HP/abilities onto traits
 - [x] Ticker-driven round loop + individual initiative
-- [ ] `attack` command + a target-dummy mob
-- [ ] Minimal Vancian spells: light, magic missile, cure light wounds, detect evil; `cast` + memorization-on-rest
+- [x] `attack` command + a target-dummy mob
+- [x] Minimal Vancian spells: light, magic missile, cure light wounds, detect evil; `cast` + memorization-on-rest
 - [ ] 0 HP triggers a death handoff stub; `tests/combat` engine scenarios green (M2 exit)
 
 - [ ] ⛔ MILESTONE GATE (M2 → M3 review). When every M2 box above is checked,

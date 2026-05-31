@@ -38,6 +38,10 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         t.add("xp", "Experience Points", trait_type="counter", base=0, min=0, max=None)
         t.add("morale", "Morale", trait_type="static", base=7, mod=0)
         self.db.char_class = None
+        self.db.spellbook: list[str] = []
+        self.db.memorized_spells: list[str] = []
+        self.db.spell_declaring: str | None = None
+        self.db.spell_disrupted: bool = False
 
     @property
     def computed_ac(self) -> int:
@@ -49,6 +53,16 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]
         hp.current = max(0, int(hp.value) - amount)
+        # Disrupt any in-progress spell declaration (combat.md §5).
+        declaring: str | None = self.db.spell_declaring
+        if declaring:
+            memorized: list[str] = list(self.db.memorized_spells or [])
+            if declaring in memorized:
+                memorized.remove(declaring)
+                self.db.memorized_spells = memorized
+            self.db.spell_declaring = None
+            self.db.spell_disrupted = True
+            self.msg(f"Your {declaring} spell is disrupted!")
 
 
 # Keep the name Evennia expects for the default character typeclass.
