@@ -23,8 +23,13 @@
 #
 # Resilience: each turn is wrapped in `timeout`, so a single hung turn is killed
 # and automatically RETRIED on the next iteration; the loop only gives up after
-# RALPH_MAX_STALLS turns in a row produce no commit. Every turn — in both modes —
-# is logged to /workspace/.ralph/log/turn-<n>.txt.
+# RALPH_MAX_STALLS turns in a row produce no commit.
+#
+# Status outputs (all under /workspace/.ralph/, gitignored — read via `make status`):
+#   log/turn-<n>.txt   per-turn output, line-buffered so `tail -f` is live
+#   current.json       heartbeat: the turn running right now (task, model, start)
+#   status.jsonl       objective git-derived record appended per completed turn
+#   turn               turn counter
 
 set -uo pipefail
 
@@ -71,18 +76,89 @@ model_args=()
 
 head_rev() { git rev-parse HEAD 2>/dev/null || echo none; }
 
+# The first unchecked tasks.md task (what the upcoming turn should pick up).
+first_task() {
+  grep -m1 '^- \[ \] ' tasks.md 2>/dev/null \
+    | sed -E 's/^- \[ \] *//; s/⛔ MILESTONE GATE.*/[milestone gate]/'
+}
+
+# Emit a status record from RJ_* env vars. mode=current overwrites the
+# heartbeat (.ralph/current.json); mode=append adds a line to the objective,
+# git-derived feed (.ralph/status.jsonl). No-op if python3 is unavailable.
+emit_status() {
+  command -v python3 >/dev/null 2>&1 || return 0
+  RJ_MODE="$1" python3 - <<'PY' 2>/dev/null || true
+import json, os
+def opt(k):
+    v = os.environ.get(k, "")
+    return v if v else None
+rec = {
+    "turn": int(os.environ.get("RJ_TURN", "0")),
+    "task": os.environ.get("RJ_TASK", ""),
+    "model": opt("RJ_MODEL") or "default",
+    "state": os.environ.get("RJ_STATE", ""),
+    "started": opt("RJ_STARTED"),
+    "ended": opt("RJ_ENDED"),
+    "exit_code": int(os.environ["RJ_EXIT"]) if os.environ.get("RJ_EXIT") else None,
+    "committed": os.environ.get("RJ_COMMITTED") == "1",
+    "sha": opt("RJ_SHA"),
+    "subject": opt("RJ_SUBJECT"),
+}
+if os.environ["RJ_MODE"] == "current":
+    json.dump(rec, open(".ralph/current.json", "w"), indent=2)
+else:
+    with open(".ralph/status.jsonl", "a") as f:
+        f.write(json.dumps(rec) + "\n")
+PY
+}
+
 turn_ec=0
 run_turn() {
   turn=$((turn + 1))
   echo "$turn" >"$turn_file"
   local log=".ralph/log/turn-${turn}.txt"
-  echo "ralph: turn $turn ($(date -Is))${RALPH_MODEL:+ model=$RALPH_MODEL} timeout=${turn_timeout}s -> $log"
-  # `timeout` sends TERM at the cap, then KILL 30s later if claude ignores it.
-  timeout -k 30 "$turn_timeout" \
+  local task started ended before after committed sha subject
+  task=$(first_task)
+  started=$(date -Is)
+  before=$(head_rev)
+
+  # Heartbeat: what is running right now (one read, no podman inspection).
+  RJ_TURN="$turn" RJ_TASK="$task" RJ_MODEL="${RALPH_MODEL:-}" RJ_STATE="running" \
+    RJ_STARTED="$started" emit_status current
+
+  echo "ralph: turn $turn ($started)${RALPH_MODEL:+ model=$RALPH_MODEL} timeout=${turn_timeout}s -> $log"
+  echo "ralph:   task -> ${task:-<none>}"
+  # stdbuf -oL line-buffers output so `tail -f` shows progress LIVE, not only
+  # when the turn ends. timeout sends TERM at the cap, then KILL 30s later.
+  stdbuf -oL -eL timeout -k 30 "$turn_timeout" \
     claude -p --dangerously-skip-permissions "${model_args[@]}" <PROMPT.md 2>&1 | tee "$log"
   turn_ec=${PIPESTATUS[0]}
   [ "$turn_ec" -eq 124 ] && echo "ralph: turn $turn TIMED OUT after ${turn_timeout}s" | tee -a "$log"
-  echo "ralph: turn $turn exited $turn_ec ($(date -Is))" | tee -a "$log"
+
+  after=$(head_rev)
+  committed=0
+  sha=""
+  subject=""
+  if [ "$before" != "$after" ]; then
+    committed=1
+    sha=$(git rev-parse --short HEAD 2>/dev/null || echo "")
+    subject=$(git log -1 --format=%s 2>/dev/null || echo "")
+  fi
+  ended=$(date -Is)
+
+  # Objective, git-derived record of the completed turn.
+  RJ_TURN="$turn" RJ_TASK="$task" RJ_MODEL="${RALPH_MODEL:-}" RJ_STATE="done" \
+    RJ_STARTED="$started" RJ_ENDED="$ended" RJ_EXIT="$turn_ec" \
+    RJ_COMMITTED="$committed" RJ_SHA="$sha" RJ_SUBJECT="$subject" emit_status append
+  RJ_TURN="$turn" RJ_TASK="$task" RJ_MODEL="${RALPH_MODEL:-}" RJ_STATE="idle" \
+    RJ_STARTED="$started" RJ_ENDED="$ended" RJ_EXIT="$turn_ec" \
+    RJ_COMMITTED="$committed" RJ_SHA="$sha" RJ_SUBJECT="$subject" emit_status current
+
+  if [ "$committed" = 1 ]; then
+    echo "ralph: turn $turn exited $turn_ec ($ended) — committed $sha: $subject" | tee -a "$log"
+  else
+    echo "ralph: turn $turn exited $turn_ec ($ended) — no commit" | tee -a "$log"
+  fi
 }
 
 trap 'echo; echo "ralph: caught SIGINT at turn $turn, exiting"; exit 130' INT
