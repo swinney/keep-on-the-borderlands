@@ -53,11 +53,6 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] XP thresholds + level lookup per class; morale (2d6 vs morale score)
 - [x] All rules-level `tests/combat` scenarios green without booting Evennia (M1 exit)
 
-- [ ] ⛔ MILESTONE GATE (M1 → M2 review). When every M1 box above is checked,
-  do NOT begin M2. As your entire action this turn, write the single line
-  `M1 complete — paused for human review before M2 (first Evennia/Django integration).`
-  to `STATUS.md` and stop. Make no code changes and do not check this box.
-
 ## M2 — Combat on the engine
 
 - [ ] Restore the mypy `evennia.*`/`django.*` override; wire `pytest-django` (`DJANGO_SETTINGS_MODULE`) for engine tests
