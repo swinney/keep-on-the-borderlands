@@ -7,6 +7,7 @@ from evennia.objects.objects import DefaultCharacter
 from evennia.utils import lazy_property
 
 from world.rules.abilities import ability_modifier
+from world.rules.combat import is_dead
 
 from .objects import ObjectParent
 
@@ -45,9 +46,17 @@ class Mob(ObjectParent, DefaultCharacter):
         dex_score: int = int(self.traits.dex.value)  # type: ignore[union-attr]
         return 10 + ability_modifier(dex_score)
 
+    def at_death(self) -> None:
+        """Death handoff stub — M3/M5 expand this to XP award + loot (combat.md §4.2)."""
+        if self.location:
+            self.location.msg_contents(f"{self.key} has been slain!", exclude=[])
+
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]
+        was_alive = not is_dead(int(hp.value))
         hp.current = max(0, int(hp.value) - amount)
+        if was_alive and is_dead(int(hp.value)):
+            self.at_death()
 
 
 class TargetDummy(Mob):

@@ -6,7 +6,7 @@ docs/specs/combat.md §8. Docstring-only; Phase 2 unskips and implements.
 
 import pytest
 
-from world.rules.combat import initiative_order
+from world.rules.combat import initiative_order, is_dead
 
 
 def test_ability_modifier_table() -> None:
@@ -58,9 +58,12 @@ def test_individual_initiative_orders_actors() -> None:
     assert tie_result[0][0] == "A"
 
 
-@pytest.mark.skip(reason="implemented in later task")
 def test_zero_hp_is_dead() -> None:
-    """WHEN a combatant reaches 0 HP THEN it is dead and leaves initiative."""
+    """WHEN a combatant reaches 0 HP THEN it is dead and leaves initiative (§4.2)."""
+    assert is_dead(0) is True
+    assert is_dead(-1) is True
+    assert is_dead(1) is False
+    assert is_dead(100) is False
 
 
 @pytest.mark.skip(reason="implemented in later task")

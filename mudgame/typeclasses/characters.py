@@ -7,7 +7,7 @@ from evennia.objects.objects import DefaultCharacter
 from evennia.utils import lazy_property
 
 from world.rules.abilities import ability_modifier
-from world.rules.combat import armor_class
+from world.rules.combat import armor_class, is_dead
 
 from .objects import ObjectParent
 
@@ -50,8 +50,14 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         # until the clothing-contrib equipment lands).
         return armor_class(dex_modifier=ability_modifier(dex_score))
 
+    def at_death(self) -> None:
+        """Death handoff stub — M3 expands this to XP loss + corpse (combat.md §4.2)."""
+        if self.location:
+            self.location.msg_contents(f"{self.key} has been slain!", exclude=[])
+
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]
+        was_alive = not is_dead(int(hp.value))
         hp.current = max(0, int(hp.value) - amount)
         # Disrupt any in-progress spell declaration (combat.md §5).
         declaring: str | None = self.db.spell_declaring
@@ -63,6 +69,8 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
             self.db.spell_declaring = None
             self.db.spell_disrupted = True
             self.msg(f"Your {declaring} spell is disrupted!")
+        if was_alive and is_dead(int(hp.value)):
+            self.at_death()
 
 
 # Keep the name Evennia expects for the default character typeclass.

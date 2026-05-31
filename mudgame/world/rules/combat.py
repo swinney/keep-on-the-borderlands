@@ -98,6 +98,11 @@ def initiative_order(
     return sorted(entries, key=lambda e: (-(e[2] + e[1]), -e[1]))
 
 
+def is_dead(current_hp: int) -> bool:
+    """Return True when a combatant is at or below 0 HP (§4.2, no bleed-out in v1)."""
+    return current_hp <= 0
+
+
 _2D6_MIN, _2D6_MAX = 2, 12
 
 
