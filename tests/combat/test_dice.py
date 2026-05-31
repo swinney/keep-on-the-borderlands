@@ -11,6 +11,7 @@ fully reproducible under test without touching global state.
 import random
 
 import pytest
+
 from world.rules import dice
 
 # ── parsing ────────────────────────────────────────────────────────────────

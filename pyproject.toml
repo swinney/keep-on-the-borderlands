@@ -68,6 +68,10 @@ ignore = [
 # as a constant hurts readability. Keep PLR2004 on for production code only.
 "tests/**" = ["PLR2004"]
 
+[tool.ruff.lint.isort]
+# Our Evennia game-dir packages — gives first-party imports their own group.
+known-first-party = ["world", "typeclasses", "commands", "server", "web"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
