@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.objects.objects import DefaultCharacter
-from evennia.utils import lazy_property
+from evennia.utils import create, lazy_property
 
 from world.rules.abilities import ability_modifier
 from world.rules.combat import armor_class, is_dead
@@ -42,6 +42,9 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         self.db.memorized_spells: list[str] = []
         self.db.spell_declaring: str | None = None
         self.db.spell_disrupted: bool = False
+        self.db.coin: int = 0
+        self.db.bank_balance: int = 0
+        self.db.hardcore: bool = False
 
     @property
     def computed_ac(self) -> int:
@@ -50,10 +53,30 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         # until the clothing-contrib equipment lands).
         return armor_class(dex_modifier=ability_modifier(dex_score))
 
+    def _create_corpse(self) -> None:
+        """Create a Corpse in the current room holding all gear and carried coin."""
+        if not self.location:
+            return
+        corpse = create.create_object(
+            "typeclasses.objects.Corpse",
+            key=f"corpse of {self.key}",
+            location=self.location,
+        )
+        corpse.db.owner_key = self.key
+        for item in list(self.contents):
+            item.move_to(corpse, quiet=True)
+        corpse.db.coin = self.db.coin or 0
+        self.db.coin = 0
+
     def at_death(self) -> None:
-        """Death handoff stub — M3 expands this to XP loss + corpse (combat.md §4.2)."""
+        """Full death dispatch (specs/death.md §1).
+
+        Creates a corpse with gear and coin. XP loss, recall, and hardcore
+        deletion are wired in subsequent M3 tasks.
+        """
         if self.location:
             self.location.msg_contents(f"{self.key} has been slain!", exclude=[])
+        self._create_corpse()
 
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]

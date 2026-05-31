@@ -89,7 +89,12 @@ def test_player_at_death_broadcasts_to_room() -> None:
         char.apply_damage(5)
         assert any("slain" in m.lower() for m in messages)
     finally:
-        char.delete()
+        # at_death creates a corpse; delete children before parents so Evennia
+        # never needs to relocate them via DEFAULT_HOME.
+        for obj in list(room.contents):
+            for child in list(obj.contents):
+                child.delete()
+            obj.delete()
         room.delete()
 
 

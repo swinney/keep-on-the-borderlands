@@ -11,6 +11,27 @@ with a location in the game world (like Characters, Rooms, Exits).
 from evennia.objects.objects import DefaultObject
 
 
+class Corpse(DefaultObject):
+    """A player's corpse created at the death location.
+
+    Contains all gear, inventory, and carried coin. Lootable by anyone.
+    Persists until looted or season reset (specs/death.md §2).
+    """
+
+    def at_object_creation(self) -> None:
+        super().at_object_creation()
+        self.db.coin = 0
+        self.db.owner_key = ""
+
+    def loot(self, looter: DefaultObject) -> None:
+        """Transfer all contents and coin to looter, then delete this corpse."""
+        for item in list(self.contents):
+            item.move_to(looter, quiet=True)
+        looter.db.coin = (looter.db.coin or 0) + (self.db.coin or 0)
+        self.db.coin = 0
+        self.delete()
+
+
 class ObjectParent:
     """
     This is a mixin that can be used to override *all* entities inheriting at
