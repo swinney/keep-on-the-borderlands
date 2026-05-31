@@ -76,7 +76,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] `world/factions/config.py`: tribes, initial pair-states, thresholds (single tuning file)
 - [x] `faction_manager` global Script: per-player standing + per-pair tension bands
 - [x] Event deltas (e.g. kill-count shifts) + decay over time
-- [ ] NPC aggression binding from standing; `consider` command
+- [x] NPC aggression binding from standing; `consider` command
 - [ ] `tests/faction` green, incl. shared-enemy thaw arithmetic (M4 exit)
 
 - [ ] ⛔ MILESTONE GATE (M4 → M5 review). When every M4 box above is checked,

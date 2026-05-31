@@ -178,6 +178,15 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         else:
             self._default_death()
 
+    def at_post_move(self, source_location: object | None, **kwargs: object) -> None:
+        """After moving to a new room, trigger mob aggro checks for all faction mobs present."""
+        super().at_post_move(source_location, **kwargs)
+        if self.location is None:
+            return
+        for obj in list(self.location.contents):
+            if getattr(obj, "IS_MOB", False) and callable(getattr(obj, "aggro_check", None)):
+                obj.aggro_check(self)
+
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]
         was_alive = not is_dead(int(hp.value))

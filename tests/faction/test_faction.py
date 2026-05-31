@@ -3,9 +3,10 @@
 Derived from openspec/changes/b2-mud-v1-design/specs/faction-system/spec.md and
 docs/specs/faction.md §7.
 
-Config-level tests (band_for, initial matrix) are active.
-FactionState tests (event processing, decay, season reset) are active as of
-the faction_manager task.  NPC-aggression tests remain skipped until that task.
+Config-level tests (band_for, initial matrix) and FactionState tests (event
+processing, decay, season reset) live here as pure-Python tests.  NPC-aggression
+and consider-command tests require the Evennia engine and live in
+tests/engine/test_faction_aggression.py.
 """
 
 import pytest
@@ -238,13 +239,3 @@ def test_season_reset_clears_standing_and_reseeds_tension() -> None:
     assert (
         state.get_tension("kobold", "goblin") == INITIAL_RELATIONS[frozenset({"kobold", "goblin"})]
     )
-
-
-@pytest.mark.skip(reason="requires Evennia engine — lands in NPC aggression task")
-def test_kill_on_sight_mob_initiates_combat() -> None:
-    """WHEN a KOS-standing player enters a room with the faction's mob THEN it attacks."""
-
-
-@pytest.mark.skip(reason="requires Evennia engine — lands in NPC aggression task")
-def test_friendly_mob_does_not_initiate_combat() -> None:
-    """WHEN a friendly-standing player enters a room with the faction's mob THEN no attack."""
