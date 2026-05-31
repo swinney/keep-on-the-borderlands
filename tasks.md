@@ -74,7 +74,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 ## M4 — Faction state machine
 
 - [x] `world/factions/config.py`: tribes, initial pair-states, thresholds (single tuning file)
-- [ ] `faction_manager` global Script: per-player standing + per-pair tension bands
+- [x] `faction_manager` global Script: per-player standing + per-pair tension bands
 - [ ] Event deltas (e.g. kill-count shifts) + decay over time
 - [ ] NPC aggression binding from standing; `consider` command
 - [ ] `tests/faction` green, incl. shared-enemy thaw arithmetic (M4 exit)
