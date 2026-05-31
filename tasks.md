@@ -48,7 +48,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Resolve the ruff-exclude / mypy-include boundary for first-party `world/rules/`; document in `docs/decisions/`; expand `[tool.mypy].files`
 - [x] `dice`: parse/roll `NdM(+K)` with a seeded-RNG seam; `tests/combat/test_dice.py`
 - [x] Ability scores + modifiers (OSE table); HP roll by class/HD (`abilities.py`, `progression.py`)
-- [ ] Ascending-AC attack math: to-hit, nat-20/nat-1 edges, damage application
+- [x] Ascending-AC attack math: to-hit, nat-20/nat-1 edges, damage application
 - [ ] Saving throws (OSE save categories by class/level)
 - [ ] XP thresholds + level lookup per class; morale (2d6 vs morale score)
 - [ ] All rules-level `tests/combat` scenarios green without booting Evennia (M1 exit)
