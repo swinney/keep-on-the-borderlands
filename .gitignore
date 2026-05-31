@@ -4,6 +4,11 @@
 #   .ralph/turn          turn counter
 .ralph/
 
+# Claude Code runtime state. Skills and commands under .claude/ are tracked;
+# these subpaths are per-machine local state.
+.claude/worktrees/
+.claude/settings.local.json
+
 # macOS metadata (the project was authored on macOS originally).
 .DS_Store
 ._.DS_Store
