@@ -63,6 +63,11 @@ ignore = [
   "PLR0913",       # too-many-arguments — design call, not a lint issue
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Tests legitimately assert against literal expected values; naming every one
+# as a constant hurts readability. Keep PLR2004 on for production code only.
+"tests/**" = ["PLR2004"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
@@ -73,6 +78,9 @@ indent-style = "space"
 [tool.mypy]
 python_version = "3.12"
 strict = true
+# mudgame/ is the Evennia game-dir root and is on sys.path at runtime, so
+# first-party code imports as `world.rules.*`. Mirror that for mypy.
+mypy_path = "mudgame"
 warn_unused_configs = true
 warn_redundant_casts = true
 warn_return_any = true
@@ -97,4 +105,7 @@ files = ["tests", "mudgame/world/rules"]
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
+# Put the Evennia game-dir root on sys.path so tests import first-party code
+# as `world.rules.*` (matches runtime; ADR 0004).
+pythonpath = ["mudgame"]
 addopts = "-ra --strict-markers --strict-config"

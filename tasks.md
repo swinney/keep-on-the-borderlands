@@ -46,7 +46,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 ## M1 — Rules core (pure, no Evennia)
 
 - [x] Resolve the ruff-exclude / mypy-include boundary for first-party `world/rules/`; document in `docs/decisions/`; expand `[tool.mypy].files`
-- [ ] `dice`: parse/roll `NdM(+K)`, advantage helpers; unskip the dice scenarios in `tests/combat`
+- [x] `dice`: parse/roll `NdM(+K)` with a seeded-RNG seam; `tests/combat/test_dice.py`
 - [ ] Ability scores + modifiers (OSE table); HP roll by class/HD
 - [ ] Ascending-AC attack math: to-hit, nat-20/nat-1 edges, damage application
 - [ ] Saving throws (OSE save categories by class/level)
