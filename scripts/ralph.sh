@@ -6,7 +6,9 @@
 # See CLAUDE.md §5 for the surrounding strategy.
 #
 # Stop conditions:
-#   * /workspace/STATUS.md appears (Claude wrote a stop reason)
+#   * /workspace/STATUS.md becomes NON-EMPTY (Claude wrote a stop reason).
+#     An empty STATUS.md is the normal "loop running" placeholder and does
+#     not stop the loop — only a written reason does.
 #   * SIGINT (Ctrl-C) from the operator
 #
 # Each iteration is logged to /workspace/.ralph/log/turn-<n>.txt so review of
@@ -47,8 +49,8 @@ while true; do
   ec=${PIPESTATUS[0]}
   echo "ralph: turn $turn exited $ec" | tee -a "$log"
 
-  if [ -f STATUS.md ]; then
-    echo "ralph: STATUS.md appeared at turn $turn — stopping"
+  if [ -s STATUS.md ]; then
+    echo "ralph: STATUS.md is non-empty at turn $turn — stopping"
     echo "--- STATUS.md ---"
     cat STATUS.md
     exit 0
