@@ -56,7 +56,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 ## M2 — Combat on the engine
 
 - [x] Restore the mypy `evennia.*`/`django.*` override; wire `pytest-django` (`DJANGO_SETTINGS_MODULE`) for engine tests
-- [ ] `Character`/`Mob` typeclasses; wire AC/HP/abilities onto traits
+- [x] `Character`/`Mob` typeclasses; wire AC/HP/abilities onto traits
 - [ ] Ticker-driven round loop + individual initiative
 - [ ] `attack` command + a target-dummy mob
 - [ ] Minimal Vancian spells: light, magic missile, cure light wounds, detect evil; `cast` + memorization-on-rest

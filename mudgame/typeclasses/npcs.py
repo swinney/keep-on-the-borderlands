@@ -1,4 +1,4 @@
-"""PlayerCharacter typeclass with OSE stats wired via the traits contrib."""
+"""Mob typeclass for monsters and NPCs with OSE stats wired via the traits contrib."""
 
 from __future__ import annotations
 
@@ -11,8 +11,10 @@ from world.rules.abilities import ability_modifier
 from .objects import ObjectParent
 
 
-class PlayerCharacter(ObjectParent, DefaultCharacter):
-    """Player-controlled character with OSE ability scores, HP, AC, XP, and level."""
+class Mob(ObjectParent, DefaultCharacter):
+    """Base NPC/monster typeclass. Not player-puppeted under normal operation."""
+
+    IS_MOB: bool = True
 
     @lazy_property
     def traits(self) -> TraitHandler:
@@ -46,7 +48,3 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]
         hp.current = max(0, int(hp.value) - amount)
-
-
-# Keep the name Evennia expects for the default character typeclass.
-Character = PlayerCharacter
