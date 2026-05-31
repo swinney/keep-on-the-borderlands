@@ -1,0 +1,26 @@
+# Ralph Loop runtime state.
+#   .ralph/claude-home/  Claude Code auth tokens — MUST NEVER be committed
+#   .ralph/log/          per-turn output logs (may quote prompt content)
+#   .ralph/turn          turn counter
+.ralph/
+
+# macOS metadata (the project was authored on macOS originally).
+.DS_Store
+._.DS_Store
+
+# Python.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# Evennia runtime (added once `evennia --init` has been run).
+*.sqlite3
+server.log
+*.log
