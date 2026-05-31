@@ -6,7 +6,7 @@ docs/specs/combat.md §8. Docstring-only; Phase 2 unskips and implements.
 
 import pytest
 
-pytestmark = pytest.mark.skip(reason="Phase 0 stub — implementation in Phase 2")
+from world.rules.combat import initiative_order
 
 
 def test_ability_modifier_table() -> None:
@@ -47,16 +47,28 @@ def test_hp_per_level_floors_at_one() -> None:
 
 def test_individual_initiative_orders_actors() -> None:
     """WHEN two combatants roll 1d6+DEX THEN the higher total acts first."""
+    entries = [("A", 1, 4), ("B", 0, 3)]
+    result = initiative_order(entries)
+    assert result[0][0] == "A"
+    assert result[1][0] == "B"
+
+    # Tie-break by DEX: both total 5 but A has higher DEX modifier.
+    tie_entries = [("A", 2, 3), ("B", 1, 4)]
+    tie_result = initiative_order(tie_entries)
+    assert tie_result[0][0] == "A"
 
 
+@pytest.mark.skip(reason="implemented in later task")
 def test_zero_hp_is_dead() -> None:
     """WHEN a combatant reaches 0 HP THEN it is dead and leaves initiative."""
 
 
+@pytest.mark.skip(reason="implemented in later task")
 def test_casting_consumes_slot() -> None:
     """WHEN a caster casts a prepared spell THEN that slot is expended."""
 
 
+@pytest.mark.skip(reason="implemented in later task")
 def test_damage_disrupts_unresolved_cast() -> None:
     """WHEN a caster takes damage before resolution THEN the spell fails and slot is lost."""
 
@@ -65,9 +77,11 @@ def test_failed_morale_routs_group() -> None:
     """WHEN a morale trigger fires and 2d6 exceeds morale THEN the group flees."""
 
 
+@pytest.mark.skip(reason="implemented in later task")
 def test_class_selection_gated_by_prime_requisite() -> None:
     """WHEN a class's prime-req minimum is unmet THEN that class is not selectable."""
 
 
+@pytest.mark.skip(reason="implemented in later task")
 def test_hardcore_opt_in_is_irrevocable() -> None:
     """WHEN a player confirms hardcore at creation THEN the flag is permanent."""

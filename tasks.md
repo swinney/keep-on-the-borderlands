@@ -57,7 +57,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 
 - [x] Restore the mypy `evennia.*`/`django.*` override; wire `pytest-django` (`DJANGO_SETTINGS_MODULE`) for engine tests
 - [x] `Character`/`Mob` typeclasses; wire AC/HP/abilities onto traits
-- [ ] Ticker-driven round loop + individual initiative
+- [x] Ticker-driven round loop + individual initiative
 - [ ] `attack` command + a target-dummy mob
 - [ ] Minimal Vancian spells: light, magic missile, cure light wounds, detect evil; `cast` + memorization-on-rest
 - [ ] 0 HP triggers a death handoff stub; `tests/combat` engine scenarios green (M2 exit)
