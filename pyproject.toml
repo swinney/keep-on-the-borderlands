@@ -1,0 +1,92 @@
+[project]
+name = "keep-on-the-borderlands"
+version = "0.0.0"
+description = "An open-source persistent multiplayer text MUD adapting B2: The Keep on the Borderlands"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Austin Swinney", email = "swinney@gmail.com" }]
+
+# Runtime deps stay empty until Phase 1 installs Evennia and friends.
+# The container installs them explicitly today; once we're committed to a
+# specific version we'll move them here and pip-install via `pip install -e .`.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "ruff",
+  "mypy",
+  "pytest",
+  "pytest-cov",
+  "pre-commit",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# No packages yet. World/typeclasses/commands get added under their own
+# top-level packages as the loop creates them.
+packages = []
+
+# ────────────────────────────────────────────────────────────────────────────
+# ruff
+# ────────────────────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [
+  "mudgame",   # Evennia's `evennia --init` output; treat as vendored
+  ".ralph",
+]
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W",   # pycodestyle + pyflakes
+  "I",             # isort
+  "B",             # flake8-bugbear
+  "UP",            # pyupgrade
+  "SIM",           # flake8-simplify
+  "RUF",           # ruff-specific
+  "C4",            # comprehensions
+  "PL",            # pylint subset
+]
+ignore = [
+  "E501",          # line length is the formatter's job
+  "PLR0913",       # too-many-arguments — design call, not a lint issue
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ────────────────────────────────────────────────────────────────────────────
+# mypy — strict per CLAUDE.md §3, scoped to first-party code only
+# ────────────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_return_any = true
+disallow_untyped_decorators = true
+
+# Grow this list as the loop creates first-party packages.
+# Evennia's `mudgame/` output is intentionally excluded — Django magic +
+# auto-generated code is not ours to type-police.
+files = ["tests"]
+
+# Once first-party code imports Evennia/Django, restore this override:
+#   [[tool.mypy.overrides]]
+#   module = ["evennia.*", "django.*"]
+#   ignore_missing_imports = true
+# Leaving it in before then triggers "unused override" warnings.
+
+# ────────────────────────────────────────────────────────────────────────────
+# pytest
+# ────────────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"

@@ -1,0 +1,36 @@
+# Pre-commit hooks for the Keep on the Borderlands MUD.
+# Mirror what CI runs in .github/workflows/ci.yml so contributors hit failures
+# before pushing rather than after. Bump pinned versions with `pre-commit
+# autoupdate` from time to time.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: mixed-line-ending
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: [--fix]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        # Only fire on files mypy is configured to check (see pyproject.toml
+        # `[tool.mypy].files`). Expand this regex as new first-party
+        # packages land under the project root.
+        files: ^tests/.*\.py$
+        # Add django-stubs etc. here once first-party code starts importing
+        # Django types.
+        additional_dependencies: []
