@@ -88,8 +88,11 @@ while true; do
   run_turn
   after=$(head_rev)
 
-  if [ -s STATUS.md ]; then
-    echo "ralph: STATUS.md is non-empty at turn $turn — stopping"
+  # Stop only on a STATUS.md with real (non-whitespace) content. A blank or
+  # whitespace-only file is treated as "still running" — a turn that writes
+  # stray whitespace must NOT trip a false stop (this bit us once).
+  if grep -q '[^[:space:]]' STATUS.md 2>/dev/null; then
+    echo "ralph: STATUS.md has a stop reason at turn $turn — stopping"
     echo "--- STATUS.md ---"
     cat STATUS.md
     exit 0

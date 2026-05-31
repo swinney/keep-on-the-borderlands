@@ -2,6 +2,11 @@
 
 You are building this project iteratively. Each invocation, do ONE task.
 
+Your ENTIRE job this invocation is the first unchecked task in /tasks.md —
+nothing else. Do not do work that is not that task: no memory management, no
+unrequested refactors, no documentation side-quests, no reorganizing. If the
+task is small, finish it and stop; do not look for extra things to do.
+
 ## Workflow
 1. Read /docs/specs/ to understand the architecture
 2. Read /tasks.md and pick the first unchecked task
@@ -40,3 +45,9 @@ You are building this project iteratively. Each invocation, do ONE task.
 - Do not skip the spec or test phase to get to implementation faster
 - Do not modify /docs/specs/ to match your implementation; modify
   the implementation to match the spec, or escalate via /docs/questions.md
+- NEVER write to /STATUS.md except exactly as the Stop conditions specify,
+  and when you do, write a non-empty one-line reason — never a blank or
+  whitespace-only file (a blank STATUS.md falsely signals the loop to stop)
+- A single focused implementation is preferred. Do not spin up multi-agent
+  workflows/subagents for a routine single-module task — it costs more than
+  it's worth and this is one task per invocation
