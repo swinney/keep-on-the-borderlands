@@ -105,10 +105,15 @@ class FactionState:
         self._add_standing(faction_id, player_key, _cfg.STANDING_EVENTS["quest_harm"])
 
     def apply_bribe(self, faction_id: str, player_key: str) -> None:
-        """Bribe: standing +5, capped at top of neutral (+14); cannot buy friendly."""
+        """Bribe: standing +5, capped at top of neutral (+14); cannot buy friendly.
+
+        The cap only limits the *gain* — a player already above the neutral cap
+        (genuinely friendly) is never reduced by a bribe.
+        """
         key = (faction_id, player_key)
         current = self.standings.get(key, 0)
-        self.standings[key] = min(current + _cfg.STANDING_EVENTS["bribe"], _NEUTRAL_CAP)
+        bribed = min(current + _cfg.STANDING_EVENTS["bribe"], _NEUTRAL_CAP)
+        self.standings[key] = max(current, bribed)
 
     # ── Relation events ─────────────────────────────────────────────────────
 

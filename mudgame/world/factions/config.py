@@ -53,7 +53,7 @@ STANDING_EVENTS: dict[str, int] = {
     "kill_leader": -8,
     "quest_aid": +10,
     "quest_harm": -10,
-    "bribe": +5,  # capped at neutral ceiling; enforced by faction_manager
+    "bribe": +5,  # capped at neutral ceiling; enforced in FactionState.apply_bribe
 }
 RELATION_EVENTS: dict[str, int] = {
     "kill_member_thaw": -1,  # per rival currently tense/war

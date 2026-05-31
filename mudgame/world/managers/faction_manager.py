@@ -2,7 +2,7 @@
 
 Pure faction logic lives in world.factions.state.FactionState; this script
 is the long-lived Evennia owner that stores the state dicts across restarts
-and drives the hourly decay tick.
+and drives the daily decay tick (each tick applies one `DECAY_PER_DAY`).
 
 Usage (from anywhere in the running game)::
 
@@ -27,7 +27,10 @@ class FactionManager(DefaultScript):
     def at_script_creation(self) -> None:
         self.key = "faction_manager"
         self.desc = "Manages faction standings and tribe-pair tensions."
-        self.interval = 3600
+        # Decay is specified as DECAY_PER_DAY and at_repeat applies exactly one
+        # decay_tick per fire, so the tick must be daily (86400s). An hourly
+        # tick would decay 24x too fast (faction.md §2.3).
+        self.interval = 86400
         self.persistent = True
         self.start_delay = True
         state = FactionState()
@@ -46,6 +49,7 @@ class FactionManager(DefaultScript):
         self.db.tensions = state.tensions
 
     def at_repeat(self) -> None:
+        # Fires once per day (see interval); applies one DECAY_PER_DAY step.
         state = self._faction_state()
         state.decay_tick()
         self._save(state)

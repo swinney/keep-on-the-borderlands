@@ -104,6 +104,12 @@ def test_bribe_cannot_exceed_neutral() -> None:
     state2.standings[("kobold", "p2")] = -20
     state2.apply_bribe("kobold", "p2")
     assert state2.get_standing("kobold", "p2") == -15
+    # Bribe while already friendly (above the neutral cap): standing is NOT
+    # reduced — the cap limits the gain, it does not claw back reputation.
+    state3 = FactionState()
+    state3.standings[("kobold", "p3")] = 20
+    state3.apply_bribe("kobold", "p3")
+    assert state3.get_standing("kobold", "p3") == 20
 
 
 def test_killing_members_thaws_only_tense_or_war_rivals() -> None:
