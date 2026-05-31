@@ -45,9 +45,7 @@ def test_situational_modifier_can_turn_a_miss_into_a_hit() -> None:
     # 14 + 1 + 1 = 16 misses AC 17; a +1 situational bonus reaches it.
     assert combat.attack_hits(d20=14, attack_bonus=1, ability_modifier=1, target_ac=17) is False
     assert (
-        combat.attack_hits(
-            d20=14, attack_bonus=1, ability_modifier=1, target_ac=17, situational=1
-        )
+        combat.attack_hits(d20=14, attack_bonus=1, ability_modifier=1, target_ac=17, situational=1)
         is True
     )
 
@@ -55,9 +53,7 @@ def test_situational_modifier_can_turn_a_miss_into_a_hit() -> None:
 def test_natural_twenty_always_hits() -> None:
     """WHEN the d20 is a natural 20 THEN the attack hits regardless of AC."""
     # Even a hopeless total (20 - 10 - 10 = 0) against a sky-high AC connects.
-    assert (
-        combat.attack_hits(d20=20, attack_bonus=-10, ability_modifier=-10, target_ac=99) is True
-    )
+    assert combat.attack_hits(d20=20, attack_bonus=-10, ability_modifier=-10, target_ac=99) is True
 
 
 def test_natural_one_always_misses() -> None:

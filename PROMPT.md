@@ -11,8 +11,12 @@ You are building this project iteratively. Each invocation, do ONE task.
    /tests/<system>/ derived from the spec. Stop. Commit. Exit.
 5. If tests exist but fail or are missing implementation, implement
    until all tests pass. Then commit. Exit.
-6. Before any commit: run `pytest`, `mypy --strict`, `ruff check`.
-   If any fail, fix before committing. Do not commit red.
+6. Before any commit, run the FULL gate in CI order and fix any failure
+   before committing (do not commit red):
+   `ruff format .` → `ruff check .` → `mypy` → `pytest`
+   CI runs `ruff format --check`, so you must actually FORMAT (not just
+   check) — a correctly-typed, passing-tests commit still fails CI if it
+   is unformatted.
 7. Mark the task complete in /tasks.md if and only if the full
    spec→test→implementation cycle for it is done and green.
 
