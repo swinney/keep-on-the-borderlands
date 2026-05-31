@@ -48,3 +48,18 @@ class Mob(ObjectParent, DefaultCharacter):
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]
         hp.current = max(0, int(hp.value) - amount)
+
+
+class TargetDummy(Mob):
+    """Non-aggressive training dummy for testing the attack command.
+
+    Fixed stats: AC 10, HP 100, no attack bonus, morale 12 (never flees).
+    Calls super().at_object_creation() then force-replaces the HP trait so the
+    gauge starts at 100 rather than the Mob default of 1.
+    """
+
+    def at_object_creation(self) -> None:
+        super().at_object_creation()
+        # force=True (the default) removes the old hp trait before re-adding,
+        # so current starts fresh at base=100 with no stale stored value.
+        self.traits.add("hp", "Hit Points", trait_type="gauge", base=100, mod=0)
