@@ -20,6 +20,7 @@ from typing import Any
 
 from evennia.scripts.scripts import DefaultScript
 
+from world.rules import dice
 from world.rules.abilities import ability_modifier
 from world.rules.combat import initiative_order, initiative_roll
 
@@ -154,10 +155,12 @@ class CombatHandler(DefaultScript):
         for combatant in alive:
             dex_score: int = int(combatant.traits.dex.value)
             dex_mod = ability_modifier(dex_score)
-            d6 = rng.randint(1, 6)
-            roll_val = initiative_roll(dex_modifier=dex_mod, d6=d6)
+            d6 = dice.roll("1d6", rng=rng)
             entries.append((combatant, dex_mod, d6))
 
+        # initiative_order leaves exact (total, DEX) ties in input order, so
+        # shuffle first — that randomises those ties (the spec's coin-flip).
+        rng.shuffle(entries)
         ordered = initiative_order(entries)
         for combatant, dex_mod, d6 in ordered:
             roll_val = initiative_roll(dex_modifier=dex_mod, d6=d6)

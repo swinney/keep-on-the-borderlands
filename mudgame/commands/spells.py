@@ -12,8 +12,15 @@ from typing import Any, ClassVar
 
 from evennia.commands.command import Command
 
+from world.rules import dice
 from world.rules.saves import CharacterClass
-from world.rules.spells import SpellData, get_spell, is_caster, spell_slots_for_level
+from world.rules.spells import (
+    SpellData,
+    get_spell,
+    is_caster,
+    preparable_spells,
+    spell_slots_for_level,
+)
 
 
 class CmdCast(Command):  # type: ignore[misc]
@@ -78,11 +85,12 @@ class CmdCast(Command):  # type: ignore[misc]
             caller.msg(f"You have not memorized {spell.name}.")
             return
 
-        # Consume the slot (must happen before resolution in case of self-damage)
+        # Resolve first; consume the slot only if the spell actually took effect,
+        # so an invalid cast (no/unreachable target) doesn't burn a memorized spell.
+        if not _resolve_spell(caller, spell, target_name):
+            return
         memorized.remove(spell_name)
         caller.db.memorized_spells = memorized
-
-        _resolve_spell(caller, spell, target_name)
 
 
 class CmdRest(Command):  # type: ignore[misc]
@@ -124,12 +132,15 @@ class CmdRest(Command):  # type: ignore[misc]
         slots = spell_slots_for_level(char_class, level)
 
         spellbook: list[str] = list(caller.db.spellbook or [])
+        # School-gated pool: clerics pray from the full divine list; arcane
+        # casters prepare arcane spells from their spellbook (rules layer).
+        pool = preparable_spells(char_class, spellbook)
 
-        # Fill memorized_spells up to slot limits per spell level.
+        # Fill slots per spell level from the gated pool.
         memorized: list[str] = []
         for spell_level_idx, slot_count in enumerate(slots):
             spell_level = spell_level_idx + 1
-            available = [s for s in spellbook if _safe_get_level(s) == spell_level]
+            available = [s.name for s in pool if s.level == spell_level]
             for i in range(slot_count):
                 if available:
                     memorized.append(available[i % len(available)])
@@ -145,29 +156,21 @@ class CmdRest(Command):  # type: ignore[misc]
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 
-def _safe_get_level(spell_name: str) -> int:
-    """Return spell level or 0 if the name is unknown."""
-    try:
-        return get_spell(spell_name).level
-    except KeyError:
-        return 0
-
-
-def _resolve_spell(caller: Any, spell: SpellData, target_name: str) -> None:
-    """Dispatch to the appropriate effect handler."""
+def _resolve_spell(caller: Any, spell: SpellData, target_name: str) -> bool:
+    """Dispatch to the effect handler. Returns True iff the spell took effect."""
     if spell.name == "light":
-        _cast_light(caller)
-    elif spell.name == "magic missile":
-        _cast_magic_missile(caller, target_name)
-    elif spell.name == "cure light wounds":
-        _cast_cure_light_wounds(caller, target_name)
-    elif spell.name == "detect evil":
-        _cast_detect_evil(caller)
-    else:
-        caller.msg(f"The {spell.name} spell fizzles. (Effect not yet implemented.)")
+        return _cast_light(caller)
+    if spell.name == "magic missile":
+        return _cast_magic_missile(caller, target_name)
+    if spell.name == "cure light wounds":
+        return _cast_cure_light_wounds(caller, target_name)
+    if spell.name == "detect evil":
+        return _cast_detect_evil(caller)
+    caller.msg(f"The {spell.name} spell fizzles. (Effect not yet implemented.)")
+    return False
 
 
-def _cast_light(caller: Any) -> None:
+def _cast_light(caller: Any) -> bool:
     loc = caller.location
     if loc:
         loc.db.light_spell = True
@@ -177,40 +180,40 @@ def _cast_light(caller: Any) -> None:
         )
     else:
         caller.msg("Light blazes around you.")
+    return True
 
 
-def _cast_magic_missile(caller: Any, target_name: str) -> None:
+def _cast_magic_missile(caller: Any, target_name: str) -> bool:
     if not target_name:
         caller.msg("Cast magic missile at whom?")
-        return
+        return False
     target = caller.search(target_name, location=caller.location)
     if not target:
-        return
+        return False
     if not hasattr(target, "apply_damage"):
         caller.msg(f"You cannot target {target.key} with magic missile.")
-        return
-    rng = random.Random()
-    damage = rng.randint(1, 6) + 1  # 1d6+1, always hits
+        return False
+    damage = dice.roll("1d6+1", rng=random.Random())  # always hits
     target.apply_damage(damage)
     if caller.location:
         caller.location.msg_contents(
             f"{caller.key}'s magic missile strikes {target.key} for {damage} damage!",
             exclude=[],
         )
+    return True
 
 
-def _cast_cure_light_wounds(caller: Any, target_name: str) -> None:
+def _cast_cure_light_wounds(caller: Any, target_name: str) -> bool:
     if not target_name or target_name in ("me", "self", caller.key.lower()):
         target = caller
     else:
         target = caller.search(target_name, location=caller.location)
         if not target:
-            return
+            return False
     if not (hasattr(target, "traits") and hasattr(target.traits, "hp")):
         caller.msg(f"You cannot heal {target.key}.")
-        return
-    rng = random.Random()
-    heal = rng.randint(1, 6) + 1  # 1d6+1
+        return False
+    heal = dice.roll("1d6+1", rng=random.Random())
     hp = target.traits.hp
     current = int(hp.value)
     max_hp = int(hp.base)
@@ -222,13 +225,14 @@ def _cast_cure_light_wounds(caller: Any, target_name: str) -> None:
             f"{caller.key} casts Cure Light Wounds on {target.key}, restoring {actual} HP.",
             exclude=[],
         )
+    return True
 
 
-def _cast_detect_evil(caller: Any) -> None:
+def _cast_detect_evil(caller: Any) -> bool:
     loc = caller.location
     if not loc:
         caller.msg("You detect no evil presence here.")
-        return
+        return True
     evil: list[str] = []
     for obj in loc.contents:
         if getattr(obj, "IS_EVIL", False) or obj.attributes.get("is_evil", False):
@@ -237,3 +241,4 @@ def _cast_detect_evil(caller: Any) -> None:
         caller.msg(f"You sense evil radiating from: {', '.join(evil)}.")
     else:
         caller.msg("You detect no evil presence here.")
+    return True

@@ -7,7 +7,7 @@ from evennia.objects.objects import DefaultCharacter
 from evennia.utils import lazy_property
 
 from world.rules.abilities import ability_modifier
-from world.rules.combat import is_dead
+from world.rules.combat import armor_class, is_dead
 
 from .objects import ObjectParent
 
@@ -44,7 +44,8 @@ class Mob(ObjectParent, DefaultCharacter):
     @property
     def computed_ac(self) -> int:
         dex_score: int = int(self.traits.dex.value)  # type: ignore[union-attr]
-        return 10 + ability_modifier(dex_score)
+        # Single source of truth for the AC formula (matches PlayerCharacter).
+        return armor_class(dex_modifier=ability_modifier(dex_score))
 
     def at_death(self) -> None:
         """Death handoff stub — M3/M5 expand this to XP award + loot (combat.md §4.2)."""

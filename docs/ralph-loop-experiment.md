@@ -86,12 +86,21 @@ modules **manually** (to validate the per-task shape and harden the gates), then
 tables over the web to verify save/XP data rather than trusting memory. M1 ended
 with 121 passing tests, all pure, no Django.
 
-### M2 — Combat on the engine (in progress)
+### M2 — Combat on the engine (complete)
 The first Evennia/Django integration. **Turn 1 supervised on Opus** (the
 config-critical `pytest-django` + `DJANGO_SETTINGS_MODULE` + mypy-override wiring,
 where a slip breaks all downstream tests). Then **Sonnet** for the mechanical
 remainder: `Character`/`Mob` typeclasses on the `traits` contrib, ticker-driven
-combat rounds, the `attack` command. 156 passing tests at last green.
+combat rounds, the `attack` command, Vancian spells (`cast`/`rest`), and the
+0-HP death-handoff stub. Shipped as **PR #1** — the first milestone routed
+through the new branch → CI → Copilot-review flow (see §5.9).
+
+### M2 review — the Copilot-PR trial (§5.9)
+Copilot's review of PR #1 returned ~13 legitimate findings, several
+independently re-deriving this project's own principles. The fixes landed on
+the branch before merge. Disruption (a spec'd behavior that was non-functional
+dead code) was **deliberately deferred** with an honest stub + a task, as it
+needs combat-round declare/resolve timing beyond M2's scope.
 
 ---
 
@@ -155,27 +164,46 @@ real work happened. → commit `0770a06`
 The loop halted mid-M2 because a turn wrote *whitespace* to `STATUS.md`, and the
 stop check (`[ -s ]`, "file is non-empty") treats any non-zero file as a stop
 signal. **Lesson:** a stop-signal "mailbox" must distinguish *whitespace* from
-*intent* — check for non-whitespace content, not file size. *(Fix pending.)*
+*intent* — check for non-whitespace content, not file size. **Fixed:** `ralph.sh`
+now stops only on non-whitespace content (`grep -q '[^[:space:]]'`).
 
 ### 5.6 The off-task excursion  ·  *the loop is a bare Claude install*
 One turn ignored the next `tasks.md` task and instead spent itself "saving memory
 about the project" — into the *container's* local home, which doesn't even persist
-to host sessions. **Lesson:** the loop's container has **no MCP, no skills, no
-project memory** — it's a vanilla `claude login`, a *different* (poorer)
-environment than an interactive session. Capability and discipline must be
-*provisioned* (a project `.mcp.json`, a tighter `PROMPT.md`), not assumed.
+to host sessions. **Lesson:** the loop's container is a near-vanilla environment
+— it had the account's claude.ai integrations (Gmail/Calendar/Drive) but **none
+of the dev MCP it needed** (no Context7), and no project memory. Capability and
+discipline must be *provisioned*, not assumed. **Fixed:** tightened `PROMPT.md`
+(do only the `tasks.md` task; never write a blank `STATUS.md`; don't spin up
+workflows for routine modules), and wired Context7 (§5.7).
 
 ### 5.7 No live framework docs  ·  *the standing gap*
 With no MCP configured, the loop implements **Evennia 6.0 from training
 knowledge, not current docs** — risky for a recent framework, and counter to our
-own "always pull current docs for external libraries" rule. *(Fix planned: wire
-Context7 into the container via `.mcp.json`.)*
+own "always pull current docs for external libraries" rule. **Fixed:** a project
+`.mcp.json` wires Context7 (verified `context7 ✓ Connected` in-container).
+*Caveat:* availability ≠ use — the loop didn't always reach for it even once
+configured; a `PROMPT.md` nudge may be needed.
 
 ### 5.8 Operational ceiling
 Launching the loop as a tracked background process from an interactive session is
 capped (10-minute tool limit). **The durable way to run a long loop is the
 canonical one: `make loop` in your own tmux.** Interactive sessions are best for
 *supervised* turns and the milestone-gate mechanics.
+
+### 5.9 The Copilot-review trial  ·  *an independent reviewer re-derives your principles*
+PR #1 (the M2 milestone) was the first run through the branch → CI →
+Copilot-review flow. Copilot returned ~13 legitimate findings with near-zero
+noise — and, with **no access to the ADRs**, it independently flagged the two
+things this project is built on: the **dice-seam bypass** (engine code rolling
+`randint` directly instead of via `world.rules.dice`, in four places) and the
+**single-source-of-truth AC duplication** (`Mob.computed_ac` re-implementing the
+formula). It also caught a *non-functional spec'd behavior* (spell disruption was
+dead code) that all 211 passing tests missed — because the tests covered the
+pieces, not the integration path. **Lesson:** green gates prove "runs and types";
+an independent review catches "wired correctly." Different failure classes,
+different tools. One finding (a claimed CI-failing lint) was **wrong** — verified
+against a green CI — a reminder to check external feedback, not blindly apply it.
 
 ---
 
@@ -221,26 +249,30 @@ the lean context file, the model strategy, and the milestone-gate sentinel.
 
 | Metric | Value |
 |---|---|
-| Total commits | 43 |
-| Unattended loop turns | 8 |
-| Models used | Sonnet 4.6 (bulk) · Opus 4.8 (config-critical turns + reviews) |
-| Tests | 156 passing / 103 Phase-0 stubs skipped |
-| Pure rules modules | 5 (`dice`, `abilities`, `progression`, `combat`, `saves`) |
+| Unattended loop turns | 10 |
+| Models used | Sonnet 4.6 (bulk) · Opus 4.8 (config-critical turns + the M2-turn-1 supervise) |
+| Tests | 211 passing / 102 Phase-0 stubs skipped |
+| Pure rules modules | 6 (`dice`, `abilities`, `progression`, `combat`, `saves`, `spells`) |
 | Red commits reaching `main` | 0 |
-| Milestones complete | Phase 0, M0, M1; M2 in progress |
+| Milestones complete | Phase 0, M0, M1, M2 |
+| First Copilot-reviewed PR | #1 — ~13 legitimate findings, fixed pre-merge |
 
 ---
 
 ## 9. Honest open challenges
 
-- **Wire live framework docs** (Context7) into the loop so Evennia code isn't
-  written from stale training knowledge.
-- **Whitespace-robust stop signal** (§5.5).
-- **Keep the loop on-task** — tighten `PROMPT.md` against excursions (§5.6).
-- **The rules↔engine wiring audit** must stay a *human* check: gates prove code
-  runs and types, not that the engine calls the right pure function. (We already
-  caught one case where a typeclass re-implemented the AC formula inline instead
-  of calling `world.rules.combat.armor_class`.)
+*Resolved during the M2 review (§5.5–5.7): whitespace stop signal, on-task
+`PROMPT.md` guards, and Context7 wiring are all done.* Still open:
+
+- **Get the loop to actually use Context7** — wiring it in wasn't enough; it
+  didn't reach for it unprompted (§5.7). Likely needs an explicit `PROMPT.md`
+  instruction to consult live docs for Evennia APIs.
+- **The rules↔engine wiring audit** must stay a *human/independent-review* check:
+  gates prove code runs and types, not that the engine calls the right pure
+  function. Copilot caught four `randint`-bypasses and the `Mob` AC duplication
+  that all green tests missed (§5.9) — keep that review step.
+- **Spell disruption** is deferred dead-code-stub pending combat-round
+  declare/resolve timing (a tracked follow-up task).
 - **Token efficiency:** the loop sometimes spins up a full multi-agent workflow
   for a trivial module — more cost than a single-agent turn needs.
 

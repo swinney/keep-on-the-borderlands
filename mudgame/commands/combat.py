@@ -14,6 +14,7 @@ from typing import ClassVar
 
 from evennia.commands.command import Command
 
+from world.rules import dice
 from world.rules.abilities import ability_modifier
 from world.rules.combat import attack_hits, melee_damage
 
@@ -57,9 +58,11 @@ class CmdAttack(Command):  # type: ignore[misc]
             caller.msg(f"You can't attack {target.key}.")
             return
 
+        # Roll through the dice seam (centralised notation/validation); pure
+        # resolution below consumes the rolled values.
         rng = random.Random()
-        d20 = rng.randint(1, 20)
-        weapon_roll = rng.randint(1, _DEFAULT_WEAPON_SIDES)
+        d20 = dice.roll("1d20", rng=rng)
+        weapon_roll = dice.roll(f"1d{_DEFAULT_WEAPON_SIDES}", rng=rng)
 
         str_score: int = int(caller.traits.str.value)
         str_mod = ability_modifier(str_score)

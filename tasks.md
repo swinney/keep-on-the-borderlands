@@ -153,6 +153,15 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [ ] Web-client theming + MOTD
 - [ ] Encounter-table tuning; all OpenSpec acceptance criteria demonstrably met (M14 exit)
 
+## Deferred follow-ups
+
+- [ ] **Spell disruption via combat-round timing** (combat.md §5): make `cast`
+  *declare* a spell (set `spell_declaring`) and resolve it at end of round via
+  the `CombatHandler`, so damage taken before resolution disrupts it. M2 shipped
+  the `apply_damage` hook but left it inert (synchronous casting never declares);
+  this needs the round loop's declare→resolve phases. Re-enables the skipped
+  `tests/combat/test_combat.py::test_damage_disrupts_unresolved_cast`.
+
 ---
 
 When every box above is checked, the loop writes "RALPH: project complete" to

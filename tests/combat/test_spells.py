@@ -11,9 +11,11 @@ import pytest
 from world.rules.saves import CharacterClass
 from world.rules.spells import (
     SpellSchool,
+    caster_school,
     get_spell,
     is_caster,
     list_spells,
+    preparable_spells,
     spell_slots_for_level,
 )
 
@@ -166,3 +168,43 @@ def test_level_zero_raises() -> None:
 def test_level_above_cap_raises() -> None:
     with pytest.raises(ValueError):
         spell_slots_for_level(CharacterClass.MAGIC_USER, 11)
+
+
+# ── School gating (combat.md §5) ───────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("cls", "school"),
+    [
+        (CharacterClass.MAGIC_USER, SpellSchool.ARCANE),
+        (CharacterClass.ELF, SpellSchool.ARCANE),
+        (CharacterClass.CLERIC, SpellSchool.DIVINE),
+        (CharacterClass.FIGHTER, None),
+        (CharacterClass.THIEF, None),
+    ],
+)
+def test_caster_school(cls: CharacterClass, school: SpellSchool | None) -> None:
+    assert caster_school(cls) == school
+
+
+def test_cleric_prepares_full_divine_list_ignoring_spellbook() -> None:
+    """Clerics pray: the pool is every divine spell, regardless of spellbook."""
+    pool = preparable_spells(CharacterClass.CLERIC, spellbook=[])
+    names = {s.name for s in pool}
+    assert "cure light wounds" in names
+    assert "detect evil" in names
+    assert "magic missile" not in names  # arcane-only
+    assert all(SpellSchool.DIVINE in s.schools for s in pool)
+
+
+def test_magic_user_pool_is_arcane_spellbook_only() -> None:
+    """A Magic-User prepares only arcane spells that are in their spellbook."""
+    pool = preparable_spells(
+        CharacterClass.MAGIC_USER, spellbook=["magic missile", "cure light wounds"]
+    )
+    names = {s.name for s in pool}
+    assert names == {"magic missile"}  # cure light wounds is divine-only → excluded
+
+
+def test_non_caster_has_empty_pool() -> None:
+    assert preparable_spells(CharacterClass.FIGHTER, spellbook=["magic missile"]) == []

@@ -60,6 +60,9 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         was_alive = not is_dead(int(hp.value))
         hp.current = max(0, int(hp.value) - amount)
         # Disrupt any in-progress spell declaration (combat.md §5).
+        # NOTE: currently inert — synchronous `cast` never sets spell_declaring.
+        # Real disruption needs combat-round declare/resolve timing; deferred,
+        # see tasks.md "Spell disruption via combat-round timing".
         declaring: str | None = self.db.spell_declaring
         if declaring:
             memorized: list[str] = list(self.db.memorized_spells or [])

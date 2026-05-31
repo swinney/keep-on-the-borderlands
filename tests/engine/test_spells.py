@@ -12,6 +12,7 @@ import pytest
 from evennia.utils import create
 
 from commands.spells import CmdCast, CmdRest
+from world.rules.spells import SpellSchool, get_spell
 
 # ── Command helpers ────────────────────────────────────────────────────────────
 
@@ -88,17 +89,37 @@ def test_rest_cleric_level1_no_slots() -> None:
 
 
 @pytest.mark.django_db
-def test_rest_cleric_level2_gets_one_slot() -> None:
-    """Cleric at level 2 gains 1 first-level slot."""
+def test_rest_cleric_prays_from_divine_list_without_spellbook() -> None:
+    """A Cleric prepares from the full divine list — no spellbook required (§5)."""
     char = create.create_object("typeclasses.characters.PlayerCharacter", key="rest-cl2")
     try:
         char.db.char_class = "cleric"
         char.traits.level.base = 2
-        char.db.spellbook = ["cure light wounds"]
+        char.db.spellbook = []  # deliberately empty: clerics pray, not study
 
         _run_rest(char)
 
-        assert char.db.memorized_spells == ["cure light wounds"]
+        memorized = char.db.memorized_spells or []
+        assert len(memorized) == 1  # one L1 slot at level 2
+        # Everything prepared must be a spell a cleric can actually cast (divine).
+        assert all(SpellSchool.DIVINE in get_spell(name).schools for name in memorized)
+    finally:
+        char.delete()
+
+
+@pytest.mark.django_db
+def test_rest_magic_user_cannot_prepare_divine_spell() -> None:
+    """A Magic-User with a divine-only spell in their book cannot prepare it (§5)."""
+    char = create.create_object("typeclasses.characters.PlayerCharacter", key="rest-mu-gate")
+    try:
+        char.db.char_class = "magic_user"
+        char.traits.level.base = 1
+        # cure light wounds is divine-only; magic missile is arcane.
+        char.db.spellbook = ["cure light wounds", "magic missile"]
+
+        _run_rest(char)
+
+        assert char.db.memorized_spells == ["magic missile"]
     finally:
         char.delete()
 
@@ -177,6 +198,25 @@ def test_cast_unknown_spell_fails() -> None:
         _run_cast(char, "fireball")
 
         assert any("unknown spell" in m.lower() for m in messages)
+    finally:
+        char.delete()
+        room.delete()
+
+
+@pytest.mark.django_db
+def test_cast_invalid_target_does_not_consume_slot() -> None:
+    """An invalid cast (targeted spell, no target) must NOT burn the memorized slot."""
+    room = create.create_object("typeclasses.rooms.Room", key="cast-room-notarget")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter", key="cast-pc-notarget", location=room
+    )
+    try:
+        char.db.memorized_spells = ["magic missile"]
+
+        _run_cast(char, "magic missile")  # no target supplied
+
+        # Slot retained because the spell never took effect.
+        assert "magic missile" in (char.db.memorized_spells or [])
     finally:
         char.delete()
         room.delete()

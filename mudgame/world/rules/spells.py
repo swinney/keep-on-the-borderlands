@@ -130,10 +130,46 @@ _CASTER_CLASSES: frozenset[CharacterClass] = frozenset(_SLOTS.keys())
 
 _ZERO_SLOTS: tuple[int, int, int, int, int] = (0, 0, 0, 0, 0)
 
+# Which spell school each caster class draws from (OSE). Magic-User/Elf are
+# arcane; Cleric is divine. Non-casters draw from neither.
+_ARCANE_CLASSES: frozenset[CharacterClass] = frozenset(
+    {CharacterClass.MAGIC_USER, CharacterClass.ELF}
+)
+_DIVINE_CLASSES: frozenset[CharacterClass] = frozenset({CharacterClass.CLERIC})
+
 
 def is_caster(char_class: CharacterClass) -> bool:
     """Return True if ``char_class`` can memorize and cast spells."""
     return char_class in _CASTER_CLASSES
+
+
+def caster_school(char_class: CharacterClass) -> SpellSchool | None:
+    """Return the spell school a class casts from, or None for non-casters."""
+    if char_class in _ARCANE_CLASSES:
+        return SpellSchool.ARCANE
+    if char_class in _DIVINE_CLASSES:
+        return SpellSchool.DIVINE
+    return None
+
+
+def preparable_spells(char_class: CharacterClass, spellbook: list[str]) -> list[SpellData]:
+    """Spells ``char_class`` may prepare on rest, gated by school (combat.md §5).
+
+    Divine casters (Cleric) pray from the **full divine list** — no spellbook
+    needed. Arcane casters (Magic-User, Elf) prepare from their ``spellbook``,
+    restricted to spells of their school. This prevents e.g. a Magic-User
+    preparing ``cure light wounds`` or a Cleric preparing ``magic missile``.
+    """
+    school = caster_school(char_class)
+    if school is None:
+        return []
+    if school is SpellSchool.DIVINE:
+        return [s for s in _SPELL_LIST if SpellSchool.DIVINE in s.schools]
+    return [
+        _REGISTRY[name]
+        for name in spellbook
+        if name in _REGISTRY and SpellSchool.ARCANE in _REGISTRY[name].schools
+    ]
 
 
 def spell_slots_for_level(
