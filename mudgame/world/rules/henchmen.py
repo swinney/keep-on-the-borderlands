@@ -1,11 +1,10 @@
-"""Henchmen hire-flow rules: retainer cap, reaction threshold, loyalty seeding.
+"""Henchmen rules: hire flow, loyalty, morale, and XP share (pure, no Evennia).
 
-docs/specs/henchmen.md §1-§3. Pure (no Evennia); all functions are
-value-in / value-out so the hire flow is unit-testable without booting the
-server or a database.
+docs/specs/henchmen.md §1-§4. All functions are value-in / value-out so the
+full system is unit-testable without booting the server or a database.
 
-Call-site pattern (same as morale_holds): the Evennia manager rolls 2d6, adds
-ability_modifier(cha_score), and passes the total to attempt_hire().
+Call-site pattern: the Evennia manager rolls dice externally and passes totals
+in (same seam as morale_holds in combat.py).
 """
 
 from __future__ import annotations
@@ -185,3 +184,66 @@ def henchman_combat_target(
     if order == ORDER_ATTACK:
         return own_target
     return None
+
+
+# ---------------------------------------------------------------------------
+# Loyalty events and adjustments (henchmen.md §2)
+# ---------------------------------------------------------------------------
+
+
+class LoyaltyEvent(Enum):
+    """Events that shift a henchman's loyalty score."""
+
+    VICTORIOUS_FIGHT = "victorious_fight"
+    FAIR_SHARE = "fair_share"
+    HEALED = "healed"
+    SHORTED_SHARE = "shorted_share"
+    SUICIDAL_ORDER = "suicidal_order"
+    ALLY_DIED = "ally_died"
+    EMPLOYER_FLED = "employer_fled"
+
+
+LOYALTY_MIN: int = 1
+LOYALTY_MAX: int = 12
+
+# Loyalty ≤ this value → grudging band; refuses risky/suicidal orders (§2 table).
+LOYALTY_BAND_GRUDGING_MAX: int = 5
+
+_LOYALTY_DELTA: dict[LoyaltyEvent, int] = {
+    LoyaltyEvent.VICTORIOUS_FIGHT: 1,
+    LoyaltyEvent.FAIR_SHARE: 1,
+    LoyaltyEvent.HEALED: 1,
+    LoyaltyEvent.SHORTED_SHARE: -2,
+    LoyaltyEvent.SUICIDAL_ORDER: -1,
+    LoyaltyEvent.ALLY_DIED: -1,
+    LoyaltyEvent.EMPLOYER_FLED: -2,
+}
+
+
+def adjust_loyalty(current: int, event: LoyaltyEvent) -> int:
+    """Apply an event delta, clamped to [LOYALTY_MIN, LOYALTY_MAX]."""
+    return max(LOYALTY_MIN, min(LOYALTY_MAX, current + _LOYALTY_DELTA[event]))
+
+
+def loyalty_band_refuses_suicidal(loyalty: int) -> bool:
+    """Return True when the henchman's loyalty band forbids obeying a suicidal order."""
+    return loyalty <= LOYALTY_BAND_GRUDGING_MAX
+
+
+# ---------------------------------------------------------------------------
+# XP share distribution (henchmen.md §4)
+# ---------------------------------------------------------------------------
+
+
+def split_xp(*, total_xp: int, full_shares: int, half_shares: int) -> tuple[int, int]:
+    """Compute per-full-share and per-half-share XP for a kill event.
+
+    Returns ``(xp_per_full_share, xp_per_half_share)``.  Integer (floor)
+    arithmetic; leftover XP from rounding is dropped.
+
+    ``full_shares`` counts players; ``half_shares`` counts henchmen.
+    """
+    virtual = full_shares * 2 + half_shares  # express everything in half-share units
+    if virtual == 0:
+        return (0, 0)
+    return (total_xp * 2 // virtual, total_xp // virtual)

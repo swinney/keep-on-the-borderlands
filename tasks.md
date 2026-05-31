@@ -85,7 +85,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 
 - [x] Tavern roster + hire flow (reaction roll, hire cost, CHA-table cap)
 - [x] Follow + basic order commands; combat AI
-- [ ] Loyalty/morale: flee or refuse below threshold (OSE)
+- [x] Loyalty/morale: flee or refuse below threshold (OSE)
 - [ ] XP + treasure share; permadeath + re-hire; `tests/henchmen` green (M5 exit)
 
 - [ ] ⛔ MILESTONE GATE (M5 → M6 review). When every M5 box above is checked,

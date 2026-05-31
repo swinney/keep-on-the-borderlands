@@ -12,7 +12,17 @@ from __future__ import annotations
 import pytest
 from evennia.utils import create
 
-from world.rules.henchmen import HireOutcome, attempt_hire, henchman_combat_target, retainer_cap
+from world.rules.combat import morale_holds
+from world.rules.henchmen import (
+    HireOutcome,
+    LoyaltyEvent,
+    adjust_loyalty,
+    attempt_hire,
+    henchman_combat_target,
+    loyalty_band_refuses_suicidal,
+    retainer_cap,
+    split_xp,
+)
 
 # ── M5 Task 1: hire flow ───────────────────────────────────────────────────
 
@@ -86,34 +96,56 @@ def test_henchman_attacks_employer_target() -> None:
     assert result is mock_target
 
 
-@pytest.mark.skip(reason="Implemented in M5 Task 3")
 def test_half_xp_share_reduces_employer_gain() -> None:
     """WHEN a kill grants XP with a henchman present THEN it gets a half share, reducing the employer's."""
+    xp_full, xp_half = split_xp(total_xp=100, full_shares=1, half_shares=1)
+    # henchman earns less than the employer
+    assert xp_half < xp_full
+    # combined payout does not exceed the pool (rounding may leave a remainder)
+    assert xp_full + xp_half <= 100
+    # henchman gets exactly half of what the employer earns (integer floor)
+    assert xp_half == xp_full // 2
 
 
-@pytest.mark.skip(reason="Implemented in M5 Task 3")
 def test_shorting_share_lowers_loyalty() -> None:
     """WHEN the player underpays a treasure share THEN loyalty decreases."""
+    assert adjust_loyalty(8, LoyaltyEvent.SHORTED_SHARE) == 6  # 8 - 2
 
 
-@pytest.mark.skip(reason="Implemented in M5 Task 3")
 def test_fair_share_raises_loyalty() -> None:
     """WHEN the player pays a fair treasure share THEN loyalty increases."""
+    assert adjust_loyalty(7, LoyaltyEvent.FAIR_SHARE) == 8  # 7 + 1
 
 
-@pytest.mark.skip(reason="Implemented in M5 Task 3")
 def test_failed_morale_routs_henchman() -> None:
     """WHEN a morale trigger fires and 2d6 exceeds loyalty THEN the henchman flees."""
+    # roll exceeds loyalty → morale fails → rout
+    assert not morale_holds(dice_total=10, morale_score=7)
+    # roll meets loyalty → morale holds → stays
+    assert morale_holds(dice_total=7, morale_score=7)
 
 
-@pytest.mark.skip(reason="Implemented in M5 Task 3")
 def test_low_loyalty_refuses_suicidal_order() -> None:
     """WHEN a low-loyalty henchman is given a suicidal order THEN it refuses."""
+    # grudging band (4-5) refuses
+    assert loyalty_band_refuses_suicidal(5)
+    assert loyalty_band_refuses_suicidal(4)
+    # reliable band (6+) does not refuse
+    assert not loyalty_band_refuses_suicidal(6)
+    assert not loyalty_band_refuses_suicidal(9)
 
 
-@pytest.mark.skip(reason="Implemented in M5 Task 3")
 def test_loyalty_adjusts_per_event_table() -> None:
     """WHEN loyalty events occur THEN loyalty changes by the tabled deltas."""
+    base = 8
+    assert adjust_loyalty(base, LoyaltyEvent.HEALED) == 9  # +1
+    assert adjust_loyalty(base, LoyaltyEvent.ALLY_DIED) == 7  # -1
+    assert adjust_loyalty(base, LoyaltyEvent.EMPLOYER_FLED) == 6  # -2
+    assert adjust_loyalty(base, LoyaltyEvent.VICTORIOUS_FIGHT) == 9  # +1
+    # upper clamp: loyalty 12 + 1 stays 12
+    assert adjust_loyalty(12, LoyaltyEvent.VICTORIOUS_FIGHT) == 12
+    # lower clamp: loyalty 1 - 2 stays 1
+    assert adjust_loyalty(1, LoyaltyEvent.SHORTED_SHARE) == 1
 
 
 @pytest.mark.skip(reason="Implemented in M5 Task 4")
