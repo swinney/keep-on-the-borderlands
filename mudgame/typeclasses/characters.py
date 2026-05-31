@@ -7,6 +7,7 @@ from evennia.objects.objects import DefaultCharacter
 from evennia.utils import lazy_property
 
 from world.rules.abilities import ability_modifier
+from world.rules.combat import armor_class
 
 from .objects import ObjectParent
 
@@ -41,7 +42,9 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
     @property
     def computed_ac(self) -> int:
         dex_score: int = int(self.traits.dex.value)  # type: ignore[union-attr]
-        return 10 + ability_modifier(dex_score)
+        # Single source of truth for the AC formula (armor/shield default to 0
+        # until the clothing-contrib equipment lands).
+        return armor_class(dex_modifier=ability_modifier(dex_score))
 
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]
