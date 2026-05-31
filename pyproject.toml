@@ -16,8 +16,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "ruff",
-  "mypy",
+  # Pin the gate tools exactly so host, container, and CI agree turn-to-turn
+  # (a Ralph Loop must not see a gate pass in one env and fail in another).
+  "ruff==0.15.15",
+  "mypy==2.1.0",
   "pytest",
   "pytest-cov",
   "pytest-django",  # needed once tests boot Django/Evennia (M2+); harmless until then
