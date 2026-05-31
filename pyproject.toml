@@ -7,10 +7,12 @@ requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "Austin Swinney", email = "swinney@gmail.com" }]
 
-# Runtime deps stay empty until Phase 1 installs Evennia and friends.
-# The container installs them explicitly today; once we're committed to a
-# specific version we'll move them here and pip-install via `pip install -e .`.
-dependencies = []
+# Runtime dependency pinned in Phase 1 (M0). Evennia transitively pins Django
+# and Twisted. Exact pin for Ralph-Loop reproducibility — bumping it is a
+# deliberate, reviewable change rather than silent drift across loop turns.
+dependencies = [
+  "evennia==6.0.0",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -18,6 +20,7 @@ dev = [
   "mypy",
   "pytest",
   "pytest-cov",
+  "pytest-django",  # needed once tests boot Django/Evennia (M2+); harmless until then
   "pre-commit",
 ]
 
