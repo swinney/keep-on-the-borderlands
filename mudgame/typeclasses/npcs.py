@@ -5,6 +5,7 @@ from __future__ import annotations
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.objects.objects import DefaultCharacter
 from evennia.utils import lazy_property
+from evennia.utils.search import search_script
 
 from world.rules.abilities import ability_modifier
 from world.rules.combat import armor_class, is_dead
@@ -40,6 +41,7 @@ class Mob(ObjectParent, DefaultCharacter):
         t.add("xp", "Experience Points", trait_type="counter", base=0, min=0, max=None)
         t.add("morale", "Morale", trait_type="static", base=7, mod=0)
         self.db.char_class = None
+        self.db.faction_id = None
 
     @property
     def computed_ac(self) -> int:
@@ -58,6 +60,35 @@ class Mob(ObjectParent, DefaultCharacter):
         hp.current = max(0, int(hp.value) - amount)
         if was_alive and is_dead(int(hp.value)):
             self.at_death()
+
+    def at_aggro(self, character: object) -> None:
+        """Announce this mob's attack; called when faction standing warrants aggression."""
+        char_key = getattr(character, "key", "intruder")
+        if self.location:
+            self.location.msg_contents(
+                f"{self.key} attacks {char_key}!",
+                exclude=[],
+            )
+
+    def aggro_check(self, character: object) -> None:
+        """Look up faction standing and call at_aggro if standing is hostile or kill-on-sight.
+
+        Skips silently when no faction_id is set or no faction_manager script exists.
+        Morale check (R8/R5) is a future revision; for now KOS and hostile always aggro.
+        """
+        faction_id: object = self.db.faction_id
+        if not faction_id:
+            return
+        results = search_script("faction_manager")
+        if not results:
+            return
+        mgr = results[0]
+        player_key = str(getattr(character, "id", "") or "")
+        if not player_key:
+            return
+        band: str = mgr.standing_band(str(faction_id), player_key)
+        if band in ("hostile", "kill-on-sight"):
+            self.at_aggro(character)
 
 
 class TargetDummy(Mob):

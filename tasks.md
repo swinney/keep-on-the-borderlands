@@ -69,18 +69,20 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Hardcore: opt-in flag at creation (irrevocable), deletion on death, leaderboard `fell` entry
 - [x] Who-list / title marker for hardcore characters; `tests/death` green (M3 exit)
 
-- [ ] ⛔ MILESTONE GATE (M3 → M4 review). When every M3 box above is checked,
-  do NOT begin M4. As your entire action this turn, write the single line
-  `M3 complete — paused for human review before M4.`
-  to `STATUS.md` and stop. Make no code changes and do not check this box.
+- [x] ⛔ MILESTONE GATE (M3 → M4 review) — **passed**: M3 reviewed and merged via PR #3.
 
 ## M4 — Faction state machine
 
-- [ ] `world/factions/config.py`: tribes, initial pair-states, thresholds (single tuning file)
-- [ ] `faction_manager` global Script: per-player standing + per-pair tension bands
-- [ ] Event deltas (e.g. kill-count shifts) + decay over time
-- [ ] NPC aggression binding from standing; `consider` command
-- [ ] `tests/faction` green, incl. shared-enemy thaw arithmetic (M4 exit)
+- [x] `world/factions/config.py`: tribes, initial pair-states, thresholds (single tuning file)
+- [x] `faction_manager` global Script: per-player standing + per-pair tension bands
+- [x] Event deltas (e.g. kill-count shifts) + decay over time
+- [x] NPC aggression binding from standing; `consider` command
+- [x] `tests/faction` green, incl. shared-enemy thaw arithmetic (M4 exit)
+
+- [ ] ⛔ MILESTONE GATE (M4 → M5 review). When every M4 box above is checked,
+  do NOT begin M5. As your entire action this turn, write the single line
+  `M4 complete — paused for human review before M5.`
+  to `STATUS.md` and stop. Make no code changes and do not check this box.
 
 ## M5 — Henchmen
 

@@ -34,6 +34,10 @@ task is small, finish it and stop; do not look for extra things to do.
   this commit completes>` so git history links cleanly to the task list
 - Do NOT add a `Co-Authored-By` trailer (or any Claude/Anthropic attribution)
   to commits — the project owner forbids it
+- Remove ALL temporary debugging scaffolding before committing — `print()`,
+  ad-hoc logging, `import sys` diagnostics, etc. Such scaffolding must never
+  land in a commit, and a stray `import` inside a loop body can itself become
+  a bug. If a test is failing, fix the cause; do not leave probes behind.
 - Never modify another subsystem's tests to make your code pass
 
 ## Stop conditions
