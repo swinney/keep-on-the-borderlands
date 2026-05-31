@@ -20,10 +20,14 @@
   proof a turn did real, gated work.
 - **The failures were operational, not logical.** The loop wrote correct OSE
   rules and Evennia typeclasses; what bit us was a hung process, a gate that
-  didn't mirror CI, a whitespace stop-signal, and an off-task excursion — all
-  fixable with better scaffolding.
-- **As of this writing:** 43 commits, 8 unattended loop turns, 156 passing tests,
-  through M2 (combat on the engine). Zero red commits reached `main`.
+  didn't mirror CI, a whitespace stop-signal, an off-task excursion, and — in
+  M3 — a debugging spiral that tripped the stall-detector exactly as designed.
+- **The stall-detector earned its keep in M3.** Two consecutive 20-minute
+  timeouts on one hard task triggered the self-halt; a human escalated that turn
+  to the stronger model and finished it in minutes. The model-by-risk strategy
+  is not theory — it's the documented recovery path.
+- **As of this writing:** 65 commits, 14 unattended loop turns, 222 passing
+  tests, through M3 (death & hardcore). Zero red commits reached `main`.
 
 ---
 
@@ -101,6 +105,26 @@ independently re-deriving this project's own principles. The fixes landed on
 the branch before merge. Disruption (a spec'd behavior that was non-functional
 dead code) was **deliberately deferred** with an honest stub + a task, as it
 needs combat-round declare/resolve timing beyond M2's scope.
+
+### Loop observability — strengthening the human↔loop channel
+Between M2 and M3 we hardened the status reporting the supervising session reads:
+line-buffered live logs (`tail -f` shows progress, not just end-of-turn), a
+`current.json` heartbeat (the turn running *now*), a git-derived `status.jsonl`
+feed (one objective record per completed turn — task, model, exit code, commit),
+and a `make status` digest. Shipped as **PR #2** (Copilot: 0 findings, clean).
+This is what made the M3 stall *legible* — we could see "turn 13 exit 124, no
+commit" without attaching to the container.
+
+### M3 — Death & hardcore (complete; loop stalled, human-recovered)
+Corpse creation, default death (XP loss + recall), hardcore permadeath +
+leaderboard, and the irrevocable `[HC]` flag/marker. The loop cleared tasks 1–2
+cleanly on Sonnet — then **stalled hard on task 3** (§5.10): two consecutive
+20-minute timeouts, the self-halt fired, and the task was **finished manually on
+Opus**. Tasks were completed test-first per the discipline; `tests/death` ended
+fully green (11/11, no skips). The episode also surfaced a config-boundary bug
+(§5.11): the loop had been adding `Co-Authored-By` trailers because the container
+never sees the *host-global* `CLAUDE.md` where that rule lived. Shipped as
+**PR #3**.
 
 ---
 
@@ -205,6 +229,39 @@ an independent review catches "wired correctly." Different failure classes,
 different tools. One finding (a claimed CI-failing lint) was **wrong** — verified
 against a green CI — a reminder to check external feedback, not blindly apply it.
 
+### 5.10 The debugging spiral  ·  *the stall-detector's first real save*
+M3 task 3 (hardcore death) was the first task to **defeat the loop**. Two
+consecutive turns hit the 20-minute timeout with no commit, so the
+consecutive-no-progress detector (§5.4) self-halted and wrote `STATUS.md` —
+working exactly as designed. The post-mortem was the interesting part: there
+were **two nested bugs**. (1) A *real* Evennia object-lifecycle bug — hardcore
+death deletes the character while its gear still names that character as its
+`home`; Evennia dereferences `home` during teleport/`delete`, so the move
+silently failed and cleanup raised `ObjectDoesNotExist`. (2) The model's own
+**debug instrumentation became a second bug**: an `import sys` placed *inside* a
+`for`-loop that didn't execute for empty corpses produced an `UnboundLocalError`,
+whose symptoms it then misattributed to bug (1). It burned both turns chasing its
+own scaffolding. **Recovery:** a human escalated the turn to **Opus**, which
+separated the two failures, fixed the lifecycle bug by re-homing corpse contents
+to a live object, deleted the debug cruft, and finished test-first in minutes.
+**Lessons:** (a) the stall ceiling is what turns "infinite spin" into "bounded
+cost + escalate" — it paid for itself here; (b) **model-by-risk is a recovery
+mechanism, not just a launch setting** — the documented move when a cheap model
+stalls on a stateful task is to escalate, not to keep retrying; (c) debug
+scaffolding must never survive a turn — a `PROMPT.md` guard ("remove diagnostic
+prints before committing") is the standing fix.
+
+### 5.11 The rule the loop couldn't see  ·  *config-boundary blindness*
+Every loop commit carried a `Co-Authored-By: Claude` trailer — violating a
+standing owner rule. The cause was structural, not disobedience: the rule lived
+in the **host-global** `~/.claude/CLAUDE.md`, but the container mounts only the
+*project* tree and a throwaway claude-home, so the loop's Claude never saw it.
+**Lesson:** an unattended loop obeys only the constraints present *in its
+sandbox*. Anything in your personal/global config is invisible to it — encode
+project-binding rules in the repo (`PROMPT.md` / project `CLAUDE.md`), not in
+your host environment. **Fixed:** the no-`Co-Authored-By` rule is now in
+`PROMPT.md`; the first commit after the fix was clean.
+
 ---
 
 ## 6. Architectural decisions worth presenting
@@ -249,13 +306,15 @@ the lean context file, the model strategy, and the milestone-gate sentinel.
 
 | Metric | Value |
 |---|---|
-| Unattended loop turns | 10 |
-| Models used | Sonnet 4.6 (bulk) · Opus 4.8 (config-critical turns + the M2-turn-1 supervise) |
-| Tests | 211 passing / 102 Phase-0 stubs skipped |
+| Total commits | 65 |
+| Unattended loop turns | 14 |
+| Models used | Sonnet 4.6 (bulk) · Opus 4.8 (config-critical turns, M2-turn-1 supervise, M3-task-3 stall recovery) |
+| Tests | 222 passing / 91 Phase-0 stubs skipped |
 | Pure rules modules | 6 (`dice`, `abilities`, `progression`, `combat`, `saves`, `spells`) |
 | Red commits reaching `main` | 0 |
-| Milestones complete | Phase 0, M0, M1, M2 |
-| First Copilot-reviewed PR | #1 — ~13 legitimate findings, fixed pre-merge |
+| Milestones complete | Phase 0, M0, M1, M2, M3 |
+| Loop tasks needing human recovery | 1 (M3 task 3 — debugging spiral, §5.10) |
+| Copilot-reviewed PRs | #1 (~13 findings) · #2 (clean) · #3 (M3, in review) |
 
 ---
 
@@ -275,6 +334,10 @@ the lean context file, the model strategy, and the milestone-gate sentinel.
   declare/resolve timing (a tracked follow-up task).
 - **Token efficiency:** the loop sometimes spins up a full multi-agent workflow
   for a trivial module — more cost than a single-agent turn needs.
+- **Debug-scaffolding hygiene (§5.10):** a turn that adds diagnostic prints can
+  trap itself; `PROMPT.md` should explicitly require removing them before commit,
+  and stateful/object-lifecycle tasks may warrant launching on Opus from the
+  start rather than stalling first.
 
 ---
 
