@@ -20,7 +20,7 @@ RUN_FLAGS := \
   -v $(WORKSPACE):/workspace \
   -v $(CLAUDE_DIR):/home/claude/.claude
 
-.PHONY: help build login loop loop-once shell clean
+.PHONY: help build login loop loop-once shell clean status
 
 help:
 	@echo "Targets:"
@@ -28,6 +28,7 @@ help:
 	@echo "  login      one-time: run 'claude login' to authenticate via Pro/Max"
 	@echo "  loop       start the Ralph Loop in the foreground (Ctrl-C to stop)"
 	@echo "  loop-once  run one Claude Code turn against PROMPT.md (no loop)"
+	@echo "  status     print a digest of loop status (current turn, recent turns, STATUS)"
 	@echo "  shell      drop into an interactive shell in the container"
 	@echo "  clean      remove the container image (preserves saved auth)"
 
@@ -67,6 +68,9 @@ shell:
 	  $(RUN_FLAGS) \
 	  --name kotb-ralph-shell \
 	  $(IMAGE)
+
+status:
+	@./scripts/ralph-status.sh
 
 clean:
 	podman rmi $(IMAGE) || true
