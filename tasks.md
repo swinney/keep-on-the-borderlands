@@ -79,10 +79,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] NPC aggression binding from standing; `consider` command
 - [x] `tests/faction` green, incl. shared-enemy thaw arithmetic (M4 exit)
 
-- [ ] ⛔ MILESTONE GATE (M4 → M5 review). When every M4 box above is checked,
-  do NOT begin M5. As your entire action this turn, write the single line
-  `M4 complete — paused for human review before M5.`
-  to `STATUS.md` and stop. Make no code changes and do not check this box.
+- [x] ⛔ MILESTONE GATE (M4 → M5 review) — **passed**: M4 reviewed and merged via PR #4.
 
 ## M5 — Henchmen
 
@@ -90,6 +87,11 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [ ] Follow + basic order commands; combat AI
 - [ ] Loyalty/morale: flee or refuse below threshold (OSE)
 - [ ] XP + treasure share; permadeath + re-hire; `tests/henchmen` green (M5 exit)
+
+- [ ] ⛔ MILESTONE GATE (M5 → M6 review). When every M5 box above is checked,
+  do NOT begin M6. As your entire action this turn, write the single line
+  `M5 complete — paused for human review before M6.`
+  to `STATUS.md` and stop. Make no code changes and do not check this box.
 
 ## M6 — Repop + seasonal reset
 
