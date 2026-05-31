@@ -97,11 +97,15 @@ disallow_untyped_decorators = true
 # first-party code first imports evennia.
 files = ["tests", "mudgame/world/rules"]
 
-# Once first-party code imports Evennia/Django, restore this override:
-#   [[tool.mypy.overrides]]
-#   module = ["evennia.*", "django.*"]
-#   ignore_missing_imports = true
-# Leaving it in before then triggers "unused override" warnings.
+# First-party engine tests (tests/engine/) now import evennia/django, so the
+# missing-imports override below is "used" — restoring it earlier triggered
+# "unused override" warnings under warn_unused_configs (M2; see M0 handoff note
+# in tasks.md). Evennia/Django ship no inline types; --strict on them is
+# intractable (ADR 0004), so we silence missing-import errors for those packages
+# while keeping our own code strict.
+[[tool.mypy.overrides]]
+module = ["evennia.*", "django.*"]
+ignore_missing_imports = true
 
 # ────────────────────────────────────────────────────────────────────────────
 # pytest
@@ -113,3 +117,8 @@ testpaths = ["tests"]
 # as `world.rules.*` (matches runtime; ADR 0004).
 pythonpath = ["mudgame"]
 addopts = "-ra --strict-markers --strict-config"
+# Engine tests (tests/engine/, and M2+ combat-on-the-engine suites) boot Django
+# via pytest-django. The shim adds TEST_ENVIRONMENT and fixes GAME_DIR; see
+# mudgame/server/conf/test_settings.py. Pure rules tests stay Django-free —
+# they request no DB fixture, so no test database is created for them.
+DJANGO_SETTINGS_MODULE = "server.conf.test_settings"
