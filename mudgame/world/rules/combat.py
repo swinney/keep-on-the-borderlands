@@ -69,3 +69,20 @@ def melee_damage(*, weapon_roll: int, str_modifier: int) -> int:
 def missile_damage(*, weapon_roll: int) -> int:
     """Missile damage: ``max(1, weapon_roll)`` — no STR modifier (§4.1)."""
     return max(1, weapon_roll)
+
+
+_2D6_MIN, _2D6_MAX = 2, 12
+
+
+def morale_holds(*, dice_total: int, morale_score: int) -> bool:
+    """Resolve a morale check: holds when ``dice_total <= morale_score`` (§6).
+
+    ``dice_total`` is the already-rolled 2d6 total; ``morale_score`` is the
+    creature or henchman rating (typically 6-12 per OSE). Meeting the score
+    holds morale; exceeding it means the group routs.
+
+    Raises ``ValueError`` if ``dice_total`` is outside the 2d6 range (2..12).
+    """
+    if not _2D6_MIN <= dice_total <= _2D6_MAX:
+        raise ValueError(f"2d6 total must be in 2..12, got {dice_total}")
+    return dice_total <= morale_score

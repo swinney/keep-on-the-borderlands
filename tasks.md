@@ -50,7 +50,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Ability scores + modifiers (OSE table); HP roll by class/HD (`abilities.py`, `progression.py`)
 - [x] Ascending-AC attack math: to-hit, nat-20/nat-1 edges, damage application
 - [x] Saving throws (OSE save categories by class/level)
-- [ ] XP thresholds + level lookup per class; morale (2d6 vs morale score)
+- [x] XP thresholds + level lookup per class; morale (2d6 vs morale score)
 - [ ] All rules-level `tests/combat` scenarios green without booting Evennia (M1 exit)
 
 - [ ] ⛔ MILESTONE GATE (M1 → M2 review). When every M1 box above is checked,
