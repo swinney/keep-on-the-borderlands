@@ -49,6 +49,19 @@ if [ ! -d "$HOME/.claude" ] || [ -z "$(ls -A "$HOME/.claude" 2>/dev/null)" ]; th
   exit 1
 fi
 
+# Claude Code's config is ~/.claude.json — a SIBLING of ~/.claude (the only
+# thing we persist), so it's missing on every fresh container and Claude prints
+# a "config not found" notice. Restore it from the newest backup (kept inside
+# the persisted .claude/backups) so each container starts clean and quiet.
+if [ ! -f "$HOME/.claude.json" ]; then
+  newest_backup=$(ls -t "$HOME"/.claude/backups/.claude.json.backup.* 2>/dev/null | head -1)
+  if [ -n "$newest_backup" ]; then
+    cp "$newest_backup" "$HOME/.claude.json"
+  else
+    echo '{}' >"$HOME/.claude.json"
+  fi
+fi
+
 mkdir -p .ralph/log
 turn_file=.ralph/turn
 turn=$(cat "$turn_file" 2>/dev/null || echo 0)
