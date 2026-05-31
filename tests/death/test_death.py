@@ -12,17 +12,65 @@ from __future__ import annotations
 import pytest
 from evennia.utils import create
 
-# ── M3 task 2: XP loss + recall (not yet implemented) ──────────────────────
+from world.rules.progression import xp_for_level
+from world.rules.saves import CharacterClass
+
+# ── M3 task 2: XP loss + recall ────────────────────────────────────────────
 
 
-@pytest.mark.skip(reason="M3 task 2: XP loss + recall not yet implemented")
+@pytest.mark.django_db
 def test_default_death_sets_xp_to_level_threshold() -> None:
     """WHEN a non-hardcore character dies THEN XP drops to the level start and level is unchanged."""
+    room = create.create_object("typeclasses.rooms.Room", key="dt-room-xp1")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter",
+        key="dt-pc-xp1",
+        location=room,
+    )
+    try:
+        char.db.char_class = CharacterClass.FIGHTER
+        char.traits.level.base = 3
+        char.traits.xp.current = 5000  # above Fighter level-3 threshold (4000)
+        char.traits.hp.base = 5
+        char.traits.hp.current = 5
+        char.apply_damage(5)
+        threshold = xp_for_level(CharacterClass.FIGHTER, 3)
+        assert int(char.traits.xp.current) == threshold
+        assert int(char.traits.level.value) == 3
+    finally:
+        char.delete()
+        for obj in list(room.contents):
+            for child in list(obj.contents):
+                child.delete()
+            obj.delete()
+        room.delete()
 
 
-@pytest.mark.skip(reason="M3 task 2: XP loss + recall not yet implemented")
+@pytest.mark.django_db
 def test_default_death_with_no_progress_keeps_xp() -> None:
     """WHEN a character at the level threshold dies THEN XP is unchanged."""
+    room = create.create_object("typeclasses.rooms.Room", key="dt-room-xp2")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter",
+        key="dt-pc-xp2",
+        location=room,
+    )
+    try:
+        char.db.char_class = CharacterClass.FIGHTER
+        char.traits.level.base = 3
+        threshold = xp_for_level(CharacterClass.FIGHTER, 3)  # 4000
+        char.traits.xp.current = threshold  # exactly at level start
+        char.traits.hp.base = 5
+        char.traits.hp.current = 5
+        char.apply_damage(5)
+        assert int(char.traits.xp.current) == threshold
+    finally:
+        char.delete()
+        for obj in list(room.contents):
+            for child in list(obj.contents):
+                child.delete()
+            obj.delete()
+        room.delete()
 
 
 # ── M3 task 1: Corpse creation ─────────────────────────────────────────────
@@ -58,12 +106,36 @@ def test_default_death_creates_corpse_with_gear_and_coin() -> None:
         room.delete()
 
 
-# ── M3 task 2: Revive at Inner Bailey (not yet implemented) ────────────────
+# ── M3 task 2: Revive at Inner Bailey ──────────────────────────────────────
 
 
-@pytest.mark.skip(reason="M3 task 2: recall/revive not yet implemented")
+@pytest.mark.django_db
 def test_default_death_revives_at_inner_bailey() -> None:
     """WHEN a default death occurs THEN the character is at the Inner Bailey at 1 HP, no spells."""
+    death_room = create.create_object("typeclasses.rooms.Room", key="dt-room-ib1")
+    inner_bailey = create.create_object("typeclasses.rooms.Room", key="dt-inner-bailey")
+    inner_bailey.tags.add("inner_bailey")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter",
+        key="dt-pc-ib1",
+        location=death_room,
+    )
+    try:
+        char.traits.hp.base = 5
+        char.traits.hp.current = 5
+        char.db.memorized_spells = ["light"]
+        char.apply_damage(5)
+        assert char.location == inner_bailey
+        assert int(char.traits.hp.current) == 1
+        assert char.db.memorized_spells == []
+    finally:
+        char.delete()
+        for obj in list(death_room.contents):
+            for child in list(obj.contents):
+                child.delete()
+            obj.delete()
+        death_room.delete()
+        inner_bailey.delete()
 
 
 # ── M3 task 1: Looting and bank balance ────────────────────────────────────

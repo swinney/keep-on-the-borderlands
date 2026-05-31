@@ -5,9 +5,11 @@ from __future__ import annotations
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.objects.objects import DefaultCharacter
 from evennia.utils import create, lazy_property
+from evennia.utils.search import search_object_by_tag
 
 from world.rules.abilities import ability_modifier
 from world.rules.combat import armor_class, is_dead
+from world.rules.progression import xp_for_level
 
 from .objects import ObjectParent
 
@@ -68,15 +70,38 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         corpse.db.coin = self.db.coin or 0
         self.db.coin = 0
 
-    def at_death(self) -> None:
-        """Full death dispatch (specs/death.md §1).
+    def _find_recall_room(self) -> object | None:
+        """Return the Inner Bailey recall room, falling back to home."""
+        rooms = search_object_by_tag("inner_bailey")
+        if rooms:
+            return rooms[0]
+        return self.home
 
-        Creates a corpse with gear and coin. XP loss, recall, and hardcore
-        deletion are wired in subsequent M3 tasks.
-        """
+    def _default_death(self) -> None:
+        """XP loss to level start + recall to Inner Bailey at 1 HP (specs/death.md §2)."""
+        char_class = self.db.char_class
+        if char_class is not None:
+            current_level = int(self.traits.level.value)  # type: ignore[union-attr]
+            threshold = xp_for_level(char_class, current_level)
+            current_xp = int(self.traits.xp.current)  # type: ignore[union-attr]
+            if current_xp > threshold:
+                self.traits.xp.current = threshold  # type: ignore[union-attr]
+        recall_room = self._find_recall_room()
+        if recall_room is not None:
+            self.move_to(recall_room, quiet=True)
+        self.traits.hp.current = 1  # type: ignore[union-attr]
+        self.db.memorized_spells = []
+
+    def at_death(self) -> None:
+        """Full death dispatch (specs/death.md §1)."""
         if self.location:
             self.location.msg_contents(f"{self.key} has been slain!", exclude=[])
         self._create_corpse()
+        if self.db.hardcore:
+            # Hardcore: leaderboard + broadcast + delete (M3 tasks 3/4)
+            pass
+        else:
+            self._default_death()
 
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]

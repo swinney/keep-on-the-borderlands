@@ -65,7 +65,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 ## M3 — Death & hardcore
 
 - [x] Corpse object creation at death location with full gear
-- [ ] Default death: XP loss to start of current level; recall-revive at Inner Bailey
+- [x] Default death: XP loss to start of current level; recall-revive at Inner Bailey
 - [ ] Hardcore: opt-in flag at creation (irrevocable), deletion on death, leaderboard `fell` entry
 - [ ] Who-list / title marker for hardcore characters; `tests/death` green (M3 exit)
 
