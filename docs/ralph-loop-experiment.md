@@ -26,8 +26,9 @@
   timeouts on one hard task triggered the self-halt; a human escalated that turn
   to the stronger model and finished it in minutes. The model-by-risk strategy
   is not theory — it's the documented recovery path.
-- **As of this writing:** 65 commits, 14 unattended loop turns, 222 passing
-  tests, through M3 (death & hardcore). Zero red commits reached `main`.
+- **As of this writing:** 74 commits, 20 unattended loop turns, 242 passing
+  tests, through M4 (faction state machine). Zero red commits reached `main`.
+  M4 ran end-to-end unattended on Sonnet and self-halted at its gate.
 
 ---
 
@@ -125,6 +126,28 @@ fully green (11/11, no skips). The episode also surfaced a config-boundary bug
 (§5.11): the loop had been adding `Co-Authored-By` trailers because the container
 never sees the *host-global* `CLAUDE.md` where that rule lived. Shipped as
 **PR #3**.
+
+### M3 review — Copilot catches a real bug green tests missed (§5.9 cont.)
+PR #3's review (9 findings, zero noise) flagged a genuine defect that all 11
+green death tests had hidden: the death code treated `db.char_class` as a
+`CharacterClass` enum, but the codebase convention (`commands/spells.py`) stores
+it as a **string** — so both death paths would crash for any real character. The
+tests passed only because they stored the *enum*, not the string the game
+actually uses. This is the M3 analogue of M2's dice-seam finding: **an
+independent reviewer with no shared assumptions catches the wiring bug; the
+fix makes the tests exercise the real path.** Now true on every code PR.
+
+### M4 — Faction state machine (complete; clean unattended run on Sonnet)
+The **counter-example to M3**: same harness, same model, opposite outcome. The
+loop ran all five M4 tasks (tribe/pair-state config, the `faction_manager`
+GlobalScript, event deltas + decay, NPC aggression + `consider`, and the
+shared-enemy thaw arithmetic) **start-to-finish on Sonnet with zero
+intervention**, then **self-halted at the M4→M5 gate** exactly as the sentinel
+specifies. Both new `PROMPT.md` guards held on every commit (no `Co-Authored-By`,
+no stray debug scaffolding). `tests/faction` ended green (14 tests; 242 total).
+**The lesson made concrete:** match model tier to task *type*, not size — M4 is
+pure-ish logic against a detailed spec (the loop's sweet spot), whereas M3's
+stall was stateful object-lifecycle work where a wrong mental model compounds.
 
 ---
 
@@ -306,15 +329,16 @@ the lean context file, the model strategy, and the milestone-gate sentinel.
 
 | Metric | Value |
 |---|---|
-| Total commits | 65 |
-| Unattended loop turns | 14 |
-| Models used | Sonnet 4.6 (bulk) · Opus 4.8 (config-critical turns, M2-turn-1 supervise, M3-task-3 stall recovery) |
-| Tests | 222 passing / 91 Phase-0 stubs skipped |
-| Pure rules modules | 6 (`dice`, `abilities`, `progression`, `combat`, `saves`, `spells`) |
+| Total commits | 74 |
+| Unattended loop turns | 20 |
+| Models used | Sonnet 4.6 (bulk; ran all of M4 unattended) · Opus 4.8 (config-critical turns, M2-turn-1 supervise, M3-task-3 stall recovery) |
+| Tests | 242 passing / 75 Phase-0 stubs skipped |
+| Pure rules / logic modules | 7 (`dice`, `abilities`, `progression`, `combat`, `saves`, `spells`, `factions`) |
 | Red commits reaching `main` | 0 |
-| Milestones complete | Phase 0, M0, M1, M2, M3 |
+| Milestones complete | Phase 0, M0, M1, M2, M3, M4 |
 | Loop tasks needing human recovery | 1 (M3 task 3 — debugging spiral, §5.10) |
-| Copilot-reviewed PRs | #1 (~13 findings) · #2 (clean) · #3 (M3, in review) |
+| Milestones run fully unattended | 1 (M4 — clean Sonnet run, self-halted at gate) |
+| Copilot-reviewed PRs | #1 (~13 findings) · #2 (clean) · #3 (9 findings incl. 1 real bug) · #4 (M4, pending) |
 
 ---
 
