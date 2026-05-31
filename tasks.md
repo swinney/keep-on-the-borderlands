@@ -51,7 +51,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Ascending-AC attack math: to-hit, nat-20/nat-1 edges, damage application
 - [x] Saving throws (OSE save categories by class/level)
 - [x] XP thresholds + level lookup per class; morale (2d6 vs morale score)
-- [ ] All rules-level `tests/combat` scenarios green without booting Evennia (M1 exit)
+- [x] All rules-level `tests/combat` scenarios green without booting Evennia (M1 exit)
 
 - [ ] ⛔ MILESTONE GATE (M1 → M2 review). When every M1 box above is checked,
   do NOT begin M2. As your entire action this turn, write the single line
