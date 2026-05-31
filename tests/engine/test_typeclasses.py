@@ -71,13 +71,15 @@ def test_character_apply_damage_reduces_hp() -> None:
 
 
 @pytest.mark.django_db
-def test_character_apply_damage_floors_at_zero() -> None:
+def test_character_lethal_damage_revives_to_one_hp() -> None:
+    # Damage floors HP at 0 internally; at_death() then revives the (non-hardcore)
+    # character to 1 HP at recall (M3), so the observable post-death HP is 1.
     char = create.create_object("typeclasses.characters.PlayerCharacter", key="test-pc-floor")
     try:
         char.traits.hp.base = 4
         del char.traits.hp.current
         char.apply_damage(999)
-        assert char.traits.hp.value == 0
+        assert char.traits.hp.value == 1
     finally:
         char.delete()
 

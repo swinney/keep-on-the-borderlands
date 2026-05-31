@@ -32,6 +32,8 @@ task is small, finish it and stop; do not look for extra things to do.
 - One subsystem per commit; commit messages reference the task
 - End each commit message with a trailer line `Ralph-Task: <the tasks.md task
   this commit completes>` so git history links cleanly to the task list
+- Do NOT add a `Co-Authored-By` trailer (or any Claude/Anthropic attribution)
+  to commits — the project owner forbids it
 - Never modify another subsystem's tests to make your code pass
 
 ## Stop conditions
