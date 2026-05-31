@@ -21,4 +21,9 @@ def _bootstrap_evennia(django_db_setup: Any, django_db_blocker: Any) -> None:
     blocker is lifted because ``_init`` touches ``ServerConfig`` during startup.
     """
     with django_db_blocker.unblock():
-        evennia._init()
+        # The death suite has an equivalent autouse fixture; share a flag so
+        # whichever runs first initialises and the other is a no-op (_init is
+        # not guaranteed idempotent).
+        if not getattr(evennia, "_kotb_initialized", False):
+            evennia._init()
+            evennia._kotb_initialized = True

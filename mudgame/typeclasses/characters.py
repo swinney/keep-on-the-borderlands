@@ -15,6 +15,7 @@ from world.leaderboard import append_fell
 from world.rules.abilities import ability_modifier
 from world.rules.combat import armor_class, is_dead
 from world.rules.progression import xp_for_level
+from world.rules.saves import CharacterClass
 
 from .objects import ObjectParent
 
@@ -107,9 +108,25 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
             return rooms[0]
         return self.home
 
+    def _resolve_char_class(self) -> CharacterClass | None:
+        """Coerce the stored char_class to a CharacterClass enum, or None.
+
+        `db.char_class` is stored as a string (the enum *value*, e.g.
+        ``"fighter"``) by the game's creation/spell code, so coerce it the same
+        way `commands/spells.py` does. An already-resolved enum passes through
+        unchanged; an unset or unrecognized value yields None.
+        """
+        raw = self.db.char_class
+        if raw is None:
+            return None
+        try:
+            return CharacterClass(raw)
+        except ValueError:
+            return None
+
     def _default_death(self) -> None:
         """XP loss to level start + recall to Inner Bailey at 1 HP (specs/death.md §2)."""
-        char_class = self.db.char_class
+        char_class = self._resolve_char_class()
         if char_class is not None:
             current_level = int(self.traits.level.value)  # type: ignore[union-attr]
             threshold = xp_for_level(char_class, current_level)
@@ -125,8 +142,13 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
     def _hardcore_death(self) -> None:
         """Leaderboard entry + broadcast + deletion (specs/death.md §3)."""
         name = self.key
-        char_class = self.db.char_class
-        class_name: str = char_class.value if char_class is not None else "unknown"
+        char_class = self._resolve_char_class()
+        if char_class is not None:
+            class_name = char_class.value
+        elif isinstance(self.db.char_class, str) and self.db.char_class:
+            class_name = self.db.char_class
+        else:
+            class_name = "unknown"
         final_level = int(self.traits.level.value)  # type: ignore[union-attr]
         season: int = ServerConfig.objects.conf("current_season", default=1) or 1
 

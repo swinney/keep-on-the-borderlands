@@ -95,6 +95,10 @@ def test_player_at_death_broadcasts_to_room() -> None:
             for child in list(obj.contents):
                 child.delete()
             obj.delete()
+        # Default death recalls the character out of the room, so it is no
+        # longer in room.contents — delete it explicitly to avoid leaking it.
+        if char.pk is not None:
+            char.delete()
         room.delete()
 
 

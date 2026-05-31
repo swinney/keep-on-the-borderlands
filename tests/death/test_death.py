@@ -31,7 +31,7 @@ def test_default_death_sets_xp_to_level_threshold() -> None:
         location=room,
     )
     try:
-        char.db.char_class = CharacterClass.FIGHTER
+        char.db.char_class = CharacterClass.FIGHTER.value  # stored as string, per game convention
         char.traits.level.base = 3
         char.traits.xp.current = 5000  # above Fighter level-3 threshold (4000)
         char.traits.hp.base = 5
@@ -59,7 +59,7 @@ def test_default_death_with_no_progress_keeps_xp() -> None:
         location=room,
     )
     try:
-        char.db.char_class = CharacterClass.FIGHTER
+        char.db.char_class = CharacterClass.FIGHTER.value  # stored as string, per game convention
         char.traits.level.base = 3
         threshold = xp_for_level(CharacterClass.FIGHTER, 3)  # 4000
         char.traits.xp.current = threshold  # exactly at level start
@@ -167,6 +167,10 @@ def test_looting_corpse_restores_gear() -> None:
         assert char.db.coin == 50
         assert all("corpse" not in obj.key for obj in room.contents)
     finally:
+        # Delete the explicitly-created child (sword) deterministically rather
+        # than relying on char.delete() to relocate it.
+        for item in list(char.contents):
+            item.delete()
         char.delete()
         room.delete()
 
@@ -221,7 +225,7 @@ def test_default_corpse_persists_until_looted_or_reset() -> None:
         room.delete()
 
 
-# ── M3 task 3: Hardcore deletion + leaderboard (not yet implemented) ───────
+# ── M3 task 3: Hardcore deletion + leaderboard ─────────────────────────────
 
 
 @pytest.mark.django_db
@@ -260,7 +264,7 @@ def test_hardcore_death_appends_leaderboard_entry() -> None:
         location=room,
     )
     try:
-        char.db.char_class = CharacterClass.FIGHTER
+        char.db.char_class = CharacterClass.FIGHTER.value  # stored as string, per game convention
         char.traits.level.base = 5
         char.traits.hp.base = 5
         char.traits.hp.current = 5
@@ -318,7 +322,7 @@ def test_hardcore_death_drops_lootable_corpse() -> None:
         room.delete()
 
 
-# ── M3 task 4: Who-list marker (not yet implemented) ───────────────────────
+# ── M3 task 4: Who-list marker ─────────────────────────────────────────────
 
 
 @pytest.mark.django_db

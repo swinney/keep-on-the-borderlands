@@ -25,13 +25,16 @@ class Corpse(DefaultObject):
 
     def loot(self, looter: DefaultObject) -> None:
         """Transfer all contents and coin to looter, then delete this corpse."""
+        # A corpse's contents may still name a now-deleted owner as their home
+        # (hardcore death deletes the character), and Evennia dereferences
+        # `home` during teleport/cleanup — a dangling reference makes the move
+        # fail and the later self.delete() raise ObjectDoesNotExist. Re-home to
+        # a stable *room* (the looter's location, falling back to the looter's
+        # own home) rather than to the looter character itself.
+        safe_home = looter.location or looter.home
         for item in list(self.contents):
-            # Re-home to the looter before moving. A corpse's contents may
-            # still name a now-deleted owner as their home (hardcore death
-            # deletes the character), and Evennia dereferences `home` during
-            # teleport/cleanup — a dangling reference makes the move fail and
-            # the later self.delete() raise ObjectDoesNotExist.
-            item.home = looter
+            if safe_home is not None:
+                item.home = safe_home
             item.move_to(looter, quiet=True)
         looter.db.coin = (looter.db.coin or 0) + (self.db.coin or 0)
         self.db.coin = 0
