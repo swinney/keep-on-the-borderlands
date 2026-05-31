@@ -84,7 +84,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 ## M5 — Henchmen
 
 - [x] Tavern roster + hire flow (reaction roll, hire cost, CHA-table cap)
-- [ ] Follow + basic order commands; combat AI
+- [x] Follow + basic order commands; combat AI
 - [ ] Loyalty/morale: flee or refuse below threshold (OSE)
 - [ ] XP + treasure share; permadeath + re-hire; `tests/henchmen` green (M5 exit)
 

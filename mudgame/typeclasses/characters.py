@@ -14,6 +14,7 @@ from evennia.utils.search import search_object_by_tag
 from world.leaderboard import append_fell
 from world.rules.abilities import ability_modifier
 from world.rules.combat import armor_class, is_dead
+from world.rules.henchmen import henchman_should_follow
 from world.rules.progression import xp_for_level
 from world.rules.saves import CharacterClass
 
@@ -179,13 +180,21 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
             self._default_death()
 
     def at_post_move(self, source_location: object | None, **kwargs: object) -> None:
-        """After moving to a new room, trigger mob aggro checks for all faction mobs present."""
+        """After moving: trigger mob aggro and move following henchmen."""
         super().at_post_move(source_location, **kwargs)
         if self.location is None:
             return
         for obj in list(self.location.contents):
             if getattr(obj, "IS_MOB", False) and callable(getattr(obj, "aggro_check", None)):
                 obj.aggro_check(self)
+        if source_location is not None:
+            for obj in list(source_location.contents):
+                if (
+                    getattr(obj, "IS_HENCHMAN", False)
+                    and obj.db.employer == self
+                    and henchman_should_follow(str(obj.db.order or ""))
+                ):
+                    obj.move_to(self.location, quiet=True)
 
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]

@@ -10,8 +10,9 @@ Un-skipped progressively across M5 tasks:
 from __future__ import annotations
 
 import pytest
+from evennia.utils import create
 
-from world.rules.henchmen import HireOutcome, attempt_hire, retainer_cap
+from world.rules.henchmen import HireOutcome, attempt_hire, henchman_combat_target, retainer_cap
 
 # ── M5 Task 1: hire flow ───────────────────────────────────────────────────
 
@@ -54,17 +55,35 @@ def test_hire_blocked_at_charisma_cap() -> None:
     assert result.fee_paid == 0
 
 
-# ── M5 Tasks 2-4: stubs ────────────────────────────────────────────────────
+# ── M5 Task 2: follow + combat AI ─────────────────────────────────────────
 
 
-@pytest.mark.skip(reason="Implemented in M5 Task 2")
+@pytest.mark.django_db
 def test_following_henchman_moves_with_employer() -> None:
     """WHEN the employer moves and the henchman follows THEN it moves to the same room."""
+    room_a = create.create_object("typeclasses.rooms.Room", key="hm-room-a")
+    room_b = create.create_object("typeclasses.rooms.Room", key="hm-room-b")
+    employer = create.create_object(
+        "typeclasses.characters.PlayerCharacter", key="hm-employer", location=room_a
+    )
+    henchman = create.create_object("typeclasses.npcs.Henchman", key="hm-follower", location=room_a)
+    try:
+        henchman.db.employer = employer
+        henchman.db.order = "follow"
+        employer.move_to(room_b, quiet=True)
+        assert henchman.location == room_b
+    finally:
+        henchman.delete()
+        employer.delete()
+        room_a.delete()
+        room_b.delete()
 
 
-@pytest.mark.skip(reason="Implemented in M5 Task 2")
 def test_henchman_attacks_employer_target() -> None:
     """WHEN in combat with no overriding order THEN the henchman attacks the employer's target."""
+    mock_target = object()
+    result = henchman_combat_target(order="follow", employer_target=mock_target)
+    assert result is mock_target
 
 
 @pytest.mark.skip(reason="Implemented in M5 Task 3")

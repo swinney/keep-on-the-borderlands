@@ -91,6 +91,23 @@ class Mob(ObjectParent, DefaultCharacter):
             self.at_aggro(character)
 
 
+class Henchman(Mob):
+    """AI follower hired from the Keep tavern (docs/specs/henchmen.md §5).
+
+    The employer holds a reference in db.employer; the henchman's current
+    standing order lives in db.order (default "follow").
+    """
+
+    IS_HENCHMAN: bool = True
+
+    def at_object_creation(self) -> None:
+        super().at_object_creation()
+        self.db.employer = None  # PlayerCharacter who hired this henchman
+        self.db.order = "follow"  # standing order (henchmen.md §5)
+        self.db.loyalty = 7  # seeded at hire; adjusted by event table (§2)
+        self.db.own_target = None  # active when order == "attack"
+
+
 class TargetDummy(Mob):
     """Non-aggressive training dummy for testing the attack command.
 

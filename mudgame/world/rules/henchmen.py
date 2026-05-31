@@ -45,7 +45,7 @@ REACTION_REFUSE_AT_OR_BELOW: int = 5
 # Separate from the reaction/attack modifier used by ability_modifier().
 # ---------------------------------------------------------------------------
 # Reaction-band thresholds used in _seed_loyalty (avoid PLR2004 magic-value lint).
-_REACTION_GRUDGING_MAX: int = 8   # 6-8 roll: grudging hire
+_REACTION_GRUDGING_MAX: int = 8  # 6-8 roll: grudging hire
 _REACTION_RELIABLE_MAX: int = 11  # 9-11 roll: reliable hire; 12 = loyal
 
 LOYALTY_MOD_BY_CHA: dict[int, int] = {
@@ -145,3 +145,43 @@ def attempt_hire(
         return HireResult(outcome=HireOutcome.REFUSED)
     loyalty = _seed_loyalty(cha_score, reaction_total=reaction_roll_total)
     return HireResult(outcome=HireOutcome.ACCEPTED, fee_paid=hire_fee, initial_loyalty=loyalty)
+
+
+# ---------------------------------------------------------------------------
+# Standing orders (henchmen.md §5)
+# ---------------------------------------------------------------------------
+
+ORDER_FOLLOW = "follow"
+ORDER_ATTACK = "attack"
+ORDER_GUARD = "guard"
+ORDER_WAIT = "wait"
+ORDER_RETREAT = "retreat"
+ORDER_DISMISS = "dismiss"
+
+VALID_ORDERS: frozenset[str] = frozenset(
+    {ORDER_FOLLOW, ORDER_ATTACK, ORDER_GUARD, ORDER_WAIT, ORDER_RETREAT, ORDER_DISMISS}
+)
+
+
+def henchman_should_follow(order: str) -> bool:
+    """Return True when the henchman should move room-to-room with its employer."""
+    return order == ORDER_FOLLOW
+
+
+def henchman_combat_target(
+    *,
+    order: str,
+    employer_target: object | None,
+    own_target: object | None = None,
+) -> object | None:
+    """Return the henchman's combat target this round (henchmen.md §5).
+
+    "follow" (default): mirror the employer's current target.
+    "attack": use the henchman's own assigned target.
+    Others ("guard", "wait", "retreat"): no auto-attack (caller handles).
+    """
+    if order == ORDER_FOLLOW:
+        return employer_target
+    if order == ORDER_ATTACK:
+        return own_target
+    return None

@@ -18,6 +18,7 @@ from evennia import default_cmds
 
 from commands.combat import CmdAttack
 from commands.faction import CmdConsider
+from commands.henchmen import CmdOrder
 from commands.spells import CmdCast, CmdRest
 
 
@@ -38,6 +39,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdAttack)
         self.add(CmdCast)
         self.add(CmdConsider)
+        self.add(CmdOrder)
         self.add(CmdRest)
         #
         # any commands you add below will overload the default ones.
