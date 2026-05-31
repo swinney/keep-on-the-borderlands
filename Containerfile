@@ -37,9 +37,10 @@ RUN npm install -g @anthropic-ai/claude-code
 
 # Python toolchain. Evennia pulls Django plus many transitive deps; pinning
 # the leaves keeps image rebuilds reproducible without locking the whole
-# transitive graph.
+# transitive graph. evennia is pinned to match pyproject [project.dependencies]
+# so the container's gates match the host's.
 RUN pip install --no-cache-dir \
-        evennia \
+        evennia==6.0.0 \
         pytest \
         pytest-django \
         pytest-cov \
