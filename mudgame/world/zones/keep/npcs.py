@@ -38,6 +38,12 @@ NPCS: list[NpcRecord] = [
         "role": "tavernkeeper",
     },
     {
+        "key": "guildmaster",
+        "name": "The Guildmaster",
+        "sdesc": "the grizzled guildmaster of adventurers",
+        "role": "guildmaster",
+    },
+    {
         "key": "curate",
         "name": "The Curate",
         "sdesc": "the Keep's grey-robed Curate",
@@ -78,6 +84,7 @@ NPCS: list[NpcRecord] = [
 # NPC key -> Keep room key (zones.md §1; Keep outline NPC table).
 PLACEMENT: dict[str, str] = {
     "tavernkeeper": "tavern",
+    "guildmaster": "guild",
     "curate": "chapel_nave",
     "anselm": "chapel_nave",
     "maeve": "chapel_vestry",

@@ -7,6 +7,8 @@ from evennia.objects.objects import DefaultCharacter
 from evennia.utils import create, lazy_property
 from evennia.utils.search import search_script
 
+from world.quests import state as quest_state
+from world.quests.config import CATALOG as QUEST_CATALOG
 from world.rules.abilities import ability_modifier
 from world.rules.combat import armor_class, is_dead
 
@@ -70,6 +72,7 @@ class Mob(ObjectParent, DefaultCharacter):
         if self.location:
             self.location.msg_contents(f"{self.key} has been slain!", exclude=[])
         self._credit_faction_kill()
+        self._credit_quest_kill()
         self._report_death_to_repop()
 
     def _credit_faction_kill(self) -> None:
@@ -108,6 +111,24 @@ class Mob(ObjectParent, DefaultCharacter):
         if attacker is not None and getattr(attacker, "IS_HENCHMAN", False):
             return attacker.db.employer
         return attacker
+
+    def _credit_quest_kill(self) -> None:
+        """Advance the killer's active tribe-clearing bounties (quests.md §2).
+
+        Uses the same responsible-player resolution as the faction credit, so a
+        kill landed by a hired henchman counts toward its employer's bounty
+        (henchmen.md §4). No-op for a factionless mob, an unattributed death, or
+        a non-player killer (another mob/henchman).
+        """
+        faction_id: object = self.db.faction_id
+        if not faction_id:
+            return
+        player = self._responsible_player()
+        if player is None or getattr(player, "IS_MOB", False):
+            return
+        log = dict(player.db.quests or {})
+        if quest_state.record_faction_kill(log, QUEST_CATALOG, str(faction_id)):
+            player.db.quests = log
 
     def _report_death_to_repop(self) -> None:
         """Notify the repop_manager of this mob's death, if it is a spawn point."""

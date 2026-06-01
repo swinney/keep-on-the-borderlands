@@ -104,7 +104,7 @@ disallow_untyped_decorators = true
 # managers, commands) stays OUT of strict scope: its untyped base classes make
 # --strict intractable. Restore the evennia/django override below at M2, when
 # first-party code first imports evennia.
-files = ["tests", "mudgame/world/rules", "mudgame/world/factions", "mudgame/world/henchmen", "mudgame/world/repop", "mudgame/world/season", "mudgame/world/zones"]
+files = ["tests", "mudgame/world/rules", "mudgame/world/factions", "mudgame/world/henchmen", "mudgame/world/quests", "mudgame/world/repop", "mudgame/world/season", "mudgame/world/zones"]
 
 # Zone-local room typeclasses (e.g. world/zones/wilderness/typeclasses.py) are
 # Evennia-coupled — they subclass XYZRoom/DefaultRoom (untyped Any bases) — and

@@ -54,6 +54,9 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         # Lifetime gp already converted to XP via XP-on-secure (economy.md §6).
         self.db.secured_xp_credited: int = 0
         self.db.hardcore: bool = False
+        # Per-character quest log (quests.md §1); keyed by quest id. See
+        # world.quests.state for the entry shape and the pure state machine.
+        self.db.quests: dict[str, object] = {}
 
     @property
     def computed_ac(self) -> int:

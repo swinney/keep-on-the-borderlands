@@ -28,6 +28,7 @@ from commands.economy import (
 )
 from commands.faction import CmdConsider
 from commands.henchmen import CmdHire, CmdOrder, CmdRoster
+from commands.quests import CmdAccept, CmdQuests, CmdTurnin
 from commands.spells import CmdCast, CmdRest
 
 
@@ -46,6 +47,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         """
         super().at_cmdset_creation()
         self.add(XYZGridCmdSet)
+        self.add(CmdAccept)
         self.add(CmdAttack)
         self.add(CmdBalance)
         self.add(CmdBuy)
@@ -55,9 +57,11 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdHire)
         self.add(CmdList)
         self.add(CmdOrder)
+        self.add(CmdQuests)
         self.add(CmdRest)
         self.add(CmdRoster)
         self.add(CmdSell)
+        self.add(CmdTurnin)
         self.add(CmdWithdraw)
         #
         # any commands you add below will overload the default ones.
