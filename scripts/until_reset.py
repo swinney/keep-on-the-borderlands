@@ -53,6 +53,10 @@ def seconds_until_reset(fragment: str, now: datetime | None = None) -> int:
     use_utc = "utc" in text
     if now is None:
         now = datetime.now(UTC) if use_utc else datetime.now().astimezone()
+    elif use_utc:
+        # Normalize an injected `now` so a UTC reset is computed in UTC regardless
+        # of the caller's zone (a naive `now` is read as local, then converted).
+        now = now.astimezone(UTC)
 
     match = _TIME_RE.search(text)
     if match is None:
