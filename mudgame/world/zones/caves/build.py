@@ -21,7 +21,9 @@ Evennia-free for the pure-data test suites.
 from __future__ import annotations
 
 from world.zones.caves.exits import EXITS
+from world.zones.caves.mobs import MOB_TEMPLATES
 from world.zones.caves.rooms import ROOMS, ZONE
+from world.zones.caves.spawns import SPAWNS
 
 # Stable identity of the ravine-mouth crossing, shared with the Wilderness zone
 # so whichever zone builds last finds and reuses the existing exit.
@@ -35,6 +37,21 @@ def build() -> None:
 
     builder.build_zone(ZONE, ROOMS, EXITS)
     _link_to_wilderness()
+    _register_spawns()
+
+
+def _register_spawns() -> None:
+    """Register the kobold tribe's spawn points with the repop manager (R3 §1).
+
+    Wires the chief + shaman leaders into the leadership-halt + rival-scouting
+    machinery (repop.md §3-4). Skips silently if the manager is not yet running,
+    mirroring the deferred inter-zone wiring above.
+    """
+    from evennia.utils.search import search_script  # noqa: PLC0415
+
+    managers = search_script("repop_manager")
+    if managers:
+        managers[0].register_zone(ZONE, SPAWNS, MOB_TEMPLATES)
 
 
 def _link_to_wilderness() -> None:

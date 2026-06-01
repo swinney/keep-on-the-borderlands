@@ -30,6 +30,8 @@ from evennia.utils import logger, search
 from world.factions import config as fac_cfg
 from world.repop import config as cfg
 from world.repop.state import HaltEvent, RepopState, Scout, SpawnPoint
+from world.zones.records import MobRecord, SpawnRecord
+from world.zones.spawn_registry import spawn_points
 
 
 class RepopManager(DefaultScript):
@@ -55,7 +57,7 @@ class RepopManager(DefaultScript):
 
     # ── State (de)serialization ──────────────────────────────────────────────
 
-    def _state(self) -> RepopState:
+    def _repop_state(self) -> RepopState:
         state = RepopState()
         for fields in (self.db.points or {}).values():
             state.register(SpawnPoint(**fields))
@@ -75,21 +77,36 @@ class RepopManager(DefaultScript):
     # ── Registration API ──────────────────────────────────────────────────────
 
     def register(self, point: SpawnPoint) -> None:
-        state = self._state()
+        state = self._repop_state()
         state.register(point)
         self._save(state)
 
     def register_all(self, points: list[SpawnPoint]) -> None:
-        state = self._state()
+        state = self._repop_state()
         for point in points:
             state.register(point)
         self._save(state)
+
+    def register_zone(
+        self,
+        zone: str,
+        spawns: list[SpawnRecord],
+        mob_templates: list[MobRecord],
+    ) -> None:
+        """Register a zone's static spawn data as live spawn points (R3 §1).
+
+        Wires a zone's ``SPAWNS`` (incl. its ``chief``/``shaman`` leaders) into
+        the manager so death reporting can fire the leadership halt + rival
+        scouting (repop.md §3-4). Idempotent: re-registering a point marks it
+        alive again, so a season-reset rebuild re-runs this safely.
+        """
+        self.register_all(spawn_points(zone, spawns, mob_templates))
 
     # ── Death / respawn API ───────────────────────────────────────────────────
 
     def notify_death(self, spawn_id: str, now: float | None = None) -> None:
         """Schedule a respawn for the point; act on any leadership halt (§3)."""
-        state = self._state()
+        state = self._repop_state()
         event = state.notify_death(spawn_id, now if now is not None else time.time())
         self._save(state)
         if event is not None:
@@ -117,7 +134,7 @@ class RepopManager(DefaultScript):
         The scout does not respawn. Standing shifts with the *rival* faction it
         belongs to, never the broken tribe whose lair it was occupying.
         """
-        state = self._state()
+        state = self._repop_state()
         scout = state.scout_records().get(scout_id)
         state.notify_scout_death(scout_id)
         self._save(state)
@@ -176,7 +193,7 @@ class RepopManager(DefaultScript):
         The static spawn-point registry is retained; the season_manager's world
         rebuild re-instantiates the live mobs from it.
         """
-        state = self._state()
+        state = self._repop_state()
         state.reset_season(now if now is not None else time.time())
         self._save(state)
 
@@ -187,13 +204,13 @@ class RepopManager(DefaultScript):
         (M11); until then this re-arms the timer, mirroring how ``_instantiate``
         stands in for real spawning.
         """
-        state = self._state()
+        state = self._repop_state()
         state.schedule_shrine_reset(now if now is not None else time.time())
         self._save(state)
 
     def at_repeat(self) -> None:
         """Reconcile the Shrine cycle, due spawns, and scout retreats per tick."""
-        state = self._state()
+        state = self._repop_state()
         now = time.time()
         self._tick_shrine(state, now)
         # Surviving scouts retreat the moment their tribe's halt lifts (§4),

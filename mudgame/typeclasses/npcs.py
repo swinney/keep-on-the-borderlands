@@ -42,6 +42,10 @@ class Mob(ObjectParent, DefaultCharacter):
         t.add("morale", "Morale", trait_type="static", base=7, mod=0)
         self.db.char_class = None
         self.db.faction_id = None
+        # Set when this mob is a repop spawn-point instance (repop.md §1); its
+        # death is reported to the repop_manager so the tribe respawns and the
+        # leadership halt + rival scouting can fire (repop.md §3-4).
+        self.db.spawn_id = None
 
     @property
     def computed_ac(self) -> int:
@@ -50,9 +54,25 @@ class Mob(ObjectParent, DefaultCharacter):
         return armor_class(dex_modifier=ability_modifier(dex_score))
 
     def at_death(self) -> None:
-        """Death handoff stub — M3/M5 expand this to XP award + loot (combat.md §4.2)."""
+        """Death handoff stub — M3/M5 expand this to XP award + loot (combat.md §4.2).
+
+        A faction mob spawned by the repop manager carries a ``spawn_id``;
+        reporting its death lets the manager schedule the respawn and fire the
+        leadership halt + rival scouting once a tribe's chief and shaman are both
+        down within one window (repop.md §3-4).
+        """
         if self.location:
             self.location.msg_contents(f"{self.key} has been slain!", exclude=[])
+        self._report_death_to_repop()
+
+    def _report_death_to_repop(self) -> None:
+        """Notify the repop_manager of this mob's death, if it is a spawn point."""
+        spawn_id = self.db.spawn_id
+        if not spawn_id:
+            return
+        results = search_script("repop_manager")
+        if results:
+            results[0].notify_death(str(spawn_id))
 
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]

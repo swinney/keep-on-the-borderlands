@@ -8,17 +8,20 @@ zone.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterator
 from typing import Any
 
 import pytest
 
 from world.factions.config import FACTIONS
+from world.repop import config as repop_cfg
 from world.zones import caves
 from world.zones.caves.exits import EXITS
 from world.zones.caves.mobs import MOB_TEMPLATES
 from world.zones.caves.rooms import ROOMS
 from world.zones.caves.spawns import SPAWNS
+from world.zones.spawn_registry import spawn_points
 
 # Rooms that are part of a (dark) lair vs the open-air ravine spine.
 RAVINE_ROOMS: frozenset[str] = frozenset({"ravine", "ravine_north", "ravine_mid", "ravine_south"})
@@ -148,6 +151,52 @@ def test_leader_spawns_are_single_and_well_formed() -> None:
         if spawn.get("is_leader"):
             assert spawn.get("leader_role") in {"chief", "shaman"}
             assert spawn["count"] == 1, "a leader spawn must be a single mob"
+
+
+# ---------------------------------------------------------------------------
+# Group 5 — Repop spawn-point derivation (repop.md §1; pure, no Evennia)
+# ---------------------------------------------------------------------------
+
+
+def test_spawn_points_expand_count() -> None:
+    """Each individual mob becomes its own SpawnPoint (per-mob respawn, §2)."""
+    points = spawn_points("caves", SPAWNS, MOB_TEMPLATES)
+    assert len(points) == sum(s["count"] for s in SPAWNS)
+
+
+def test_spawn_point_ids_are_unique() -> None:
+    points = spawn_points("caves", SPAWNS, MOB_TEMPLATES)
+    ids = [p.spawn_id for p in points]
+    assert len(ids) == len(set(ids))
+
+
+def test_spawn_points_resolve_faction_from_template() -> None:
+    """The point's faction is read from its mob template (§1), not invented."""
+    faction_by_template = {m["key"]: m["faction"] for m in MOB_TEMPLATES}
+    for point in spawn_points("caves", SPAWNS, MOB_TEMPLATES):
+        assert point.faction == faction_by_template[point.mob_template]
+
+
+def test_derived_points_have_one_chief_and_one_shaman_leader() -> None:
+    """The two kobold leaders the R3 halt depends on survive derivation."""
+    points = spawn_points("caves", SPAWNS, MOB_TEMPLATES)
+    leaders = [p for p in points if p.is_leader]
+    roles = [p.leader_role for p in leaders]
+    assert roles.count("chief") == 1
+    assert roles.count("shaman") == 1
+    assert all(p.faction == "kobold" for p in leaders)
+
+
+def test_spawn_point_room_is_zone_namespaced() -> None:
+    """Rooms are ``<zone>:<key>`` so the manager can resolve them by tag (§1)."""
+    for point in spawn_points("caves", SPAWNS, MOB_TEMPLATES):
+        assert point.room.startswith("caves:")
+
+
+def test_unknown_template_is_rejected() -> None:
+    bad = [{"room": "kobold_den", "template": "dragon", "count": 1, "respawn_seconds": 900}]
+    with pytest.raises(KeyError):
+        spawn_points("caves", bad, MOB_TEMPLATES)  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
@@ -298,3 +347,93 @@ def test_wilderness_to_caves_round_trip(built_wilderness_and_caves: None) -> Non
     back = [e for e in ravine.exits if e.key == "w"]
     assert back, "no return exit from the caves ravine to the wilderness"
     assert back[0].destination == mouth
+
+
+# ---------------------------------------------------------------------------
+# Engine tests — chief + shaman wired to the leadership halt + rival scouting
+# (repop.md §3-4; the M9 wiring this task delivers)
+# ---------------------------------------------------------------------------
+
+
+def _kobold_leaders() -> tuple[Any, Any]:
+    """The derived chief and shaman SpawnPoints for the kobold tribe."""
+    points = spawn_points("caves", SPAWNS, MOB_TEMPLATES)
+    chief = next(p for p in points if p.leader_role == "chief")
+    shaman = next(p for p in points if p.leader_role == "shaman")
+    return chief, shaman
+
+
+@pytest.fixture
+def repop_and_factions() -> Iterator[tuple[Any, Any]]:
+    """A registered repop_manager + faction_manager, torn down after the test."""
+    from evennia.utils import create  # noqa: PLC0415
+
+    repop = create.create_script("world.managers.repop_manager.RepopManager")
+    factions = create.create_script("world.managers.faction_manager.FactionManager")
+    repop.register_zone("caves", SPAWNS, MOB_TEMPLATES)
+    try:
+        yield repop, factions
+    finally:
+        repop.delete()
+        factions.delete()
+
+
+def _make_leader_mob(spawn_id: str, key: str, room: Any) -> Any:
+    from evennia.utils import create  # noqa: PLC0415
+
+    mob = create.create_object("typeclasses.npcs.Mob", key=key, location=room)
+    mob.db.spawn_id = spawn_id
+    mob.db.faction_id = "kobold"
+    return mob
+
+
+@pytest.mark.django_db
+def test_killing_one_kobold_leader_does_not_halt(repop_and_factions: tuple[Any, Any]) -> None:
+    """Dropping only the chief schedules its respawn but never halts the tribe."""
+    from evennia.utils import create  # noqa: PLC0415
+
+    repop, _ = repop_and_factions
+    chief, _shaman = _kobold_leaders()
+    room = create.create_object("typeclasses.rooms.Room", key="caves-halt-room-1")
+    try:
+        chief_mob = _make_leader_mob(chief.spawn_id, "Sharptooth", room)
+        chief_mob.at_death()
+        assert chief.spawn_id in (repop.db.respawn_at or {})
+        assert "kobold" not in (repop.db.halted_until or {})
+        assert not (repop.db.scouts or {})
+    finally:
+        room.delete()
+
+
+@pytest.mark.django_db
+def test_killing_both_kobold_leaders_halts_and_scouts(
+    repop_and_factions: tuple[Any, Any],
+) -> None:
+    """Chief + shaman both down → kobold repop freezes and orc_vol scouts move in."""
+    from evennia.utils import create  # noqa: PLC0415
+
+    repop, factions = repop_and_factions
+    chief, shaman = _kobold_leaders()
+    baseline_tension = factions.get_tension("kobold", "orc_vol")
+    room = create.create_object("typeclasses.rooms.Room", key="caves-halt-room-2")
+    try:
+        chief_mob = _make_leader_mob(chief.spawn_id, "Sharptooth", room)
+        shaman_mob = _make_leader_mob(shaman.spawn_id, "Grik", room)
+
+        chief_mob.at_death()
+        shaman_mob.at_death()
+
+        # The tribe is frozen (repop.md §3).
+        halted_until = (repop.db.halted_until or {}).get("kobold")
+        assert halted_until is not None and halted_until > time.time()
+
+        # The designated rival (orc_vol) sends a scouting party (repop.md §4).
+        scouts = repop.db.scouts or {}
+        assert len(scouts) == repop_cfg.SCOUT_PARTY_SIZE
+        assert all(s["faction"] == "orc_vol" for s in scouts.values())
+        assert all(s["scouting"] == "kobold" for s in scouts.values())
+
+        # The halt applies the R2 leadership_broken tension spike with the rival.
+        assert factions.get_tension("kobold", "orc_vol") > baseline_tension
+    finally:
+        room.delete()
