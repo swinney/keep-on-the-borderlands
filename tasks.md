@@ -103,7 +103,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 
 ## M7 — Keep zone
 
-- [ ] Build `world/zones/keep/` rooms + exits (recall = Inner Bailey)
+- [x] Build `world/zones/keep/` rooms + exits (recall = Inner Bailey)
 - [ ] Provisioner shop + economy (starting gold, pricing, gold sinks); bank
 - [ ] Tavern henchman roster integration; chapel staff NPCs (priest pool placeholder)
 - [ ] Rest / spell memorization in the Keep; new character spawns→equips→hires→rests (M7 exit)
