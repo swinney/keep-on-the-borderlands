@@ -23,11 +23,13 @@ import time
 from dataclasses import asdict
 from typing import Any
 
+import evennia
 from evennia.scripts.scripts import DefaultScript
-from evennia.utils import logger
+from evennia.utils import logger, search
 
+from world.factions import config as fac_cfg
 from world.repop import config as cfg
-from world.repop.state import RepopState, SpawnPoint
+from world.repop.state import HaltEvent, RepopState, SpawnPoint
 
 
 class RepopManager(DefaultScript):
@@ -40,10 +42,12 @@ class RepopManager(DefaultScript):
         self.persistent = True
         self.start_delay = True
         # Persisted as plain dicts so Evennia Attributes can store them:
-        #   points:     spawn_id -> SpawnPoint field dict
-        #   respawn_at: spawn_id -> epoch second the point is due to respawn
+        #   points:       spawn_id -> SpawnPoint field dict
+        #   respawn_at:   spawn_id -> epoch second the point is due to respawn
+        #   halted_until: faction -> epoch second a leadership halt lifts (§3)
         self.db.points = {}
         self.db.respawn_at = {}
+        self.db.halted_until = {}
 
     # ── State (de)serialization ──────────────────────────────────────────────
 
@@ -52,11 +56,13 @@ class RepopManager(DefaultScript):
         for fields in (self.db.points or {}).values():
             state.register(SpawnPoint(**fields))
         state.load_timers(dict(self.db.respawn_at or {}))
+        state.load_halts(dict(self.db.halted_until or {}))
         return state
 
     def _save(self, state: RepopState) -> None:
         self.db.points = {p.spawn_id: asdict(p) for p in state.spawn_points()}
         self.db.respawn_at = state.pending_timers()
+        self.db.halted_until = state.halt_windows()
 
     # ── Registration API ──────────────────────────────────────────────────────
 
@@ -74,10 +80,42 @@ class RepopManager(DefaultScript):
     # ── Death / respawn API ───────────────────────────────────────────────────
 
     def notify_death(self, spawn_id: str, now: float | None = None) -> None:
-        """Schedule a respawn for the point at the next due tick."""
+        """Schedule a respawn for the point; act on any leadership halt (§3)."""
         state = self._state()
-        state.notify_death(spawn_id, now if now is not None else time.time())
+        event = state.notify_death(spawn_id, now if now is not None else time.time())
         self._save(state)
+        if event is not None:
+            self._on_leadership_halt(event)
+
+    def _on_leadership_halt(self, event: HaltEvent) -> None:
+        """Carry out a triggered halt: broadcast + R2 leadership_broken (§3).
+
+        Rival scouting (§4) is wired by the next M6 task; the tension spike and
+        the disarray broadcast are the §3 contract handled here.
+        """
+        tribe = self._tribe_display(event.faction)
+        message = f"With chief and shaman both slain, {tribe} warren falls into disarray."
+        self._broadcast(message)
+        managers = search.search_script("faction_manager")
+        if managers:
+            managers[0].apply_leadership_broken(event.faction)
+
+    @staticmethod
+    def _tribe_display(faction: str) -> str:
+        """Human-readable tribe name for broadcasts, falling back to the id."""
+        definition = fac_cfg.FACTIONS.get(faction)
+        return definition["display"] if definition is not None else faction
+
+    @staticmethod
+    def _broadcast(message: str) -> None:
+        """Announce to every connected session.
+
+        Zone-scoped delivery awaits the zone room registry (M7+); until then a
+        server-wide announcement is the safe analogue, mirroring _instantiate.
+        """
+        if evennia.SESSION_HANDLER is not None:
+            for session in evennia.SESSION_HANDLER.get_sessions():
+                session.msg(message)
 
     def at_repeat(self) -> None:
         """Reconcile due spawns once per MANAGER_TICK."""

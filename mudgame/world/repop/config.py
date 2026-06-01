@@ -14,5 +14,9 @@ from __future__ import annotations
 # Normal mob respawn delay. 15 real minutes (spec §1 STANDARD_RESPAWN).
 STANDARD_RESPAWN: int = 15 * 60
 
+# Repop freeze after a tribe's chief AND shaman are both dead at once
+# (spec §1 LEADERSHIP_HALT / §3). 60 real minutes.
+LEADERSHIP_HALT: int = 60 * 60
+
 # How often the repop_manager reconciles due spawns (spec §1 MANAGER_TICK).
 MANAGER_TICK: int = 60

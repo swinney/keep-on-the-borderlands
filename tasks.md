@@ -93,7 +93,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 ## M6 — Repop + seasonal reset
 
 - [x] Spawn-point registration + 15-min respawn
-- [ ] Leadership halt: chief AND shaman dead → 60-min repop freeze
+- [x] Leadership halt: chief AND shaman dead → 60-min repop freeze
 - [ ] Rival-tribe scouting into the dead window + faction-pair shift
 - [ ] Shrine 24h reset cycle + server broadcast
 - [ ] `season_manager`: orchestrate per-manager reset hooks; leaderboard snapshot; `end_season`
