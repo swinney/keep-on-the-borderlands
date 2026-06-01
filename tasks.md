@@ -127,10 +127,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Guildmaster tribe-clearing quest + treasure→XP-on-secure loop
 - [x] Integration test: spawn → equip → hire → travel → clear tribe → return → turn in → bank for XP (M9 exit)
 
-- [ ] ⛔ MILESTONE GATE (M9 → M10 review). When every M9 box above is checked,
-  do NOT begin M10. As your entire action this turn, write the single line
-  `M9 complete — paused for human review before M10.`
-  to `STATUS.md` and stop. Make no code changes and do not check this box.
+- [x] ⛔ MILESTONE GATE (M9 → M10 review) — **passed**: M9 reviewed and merged via PR #8. M10 runs via the fan-out harness (PR #10; `docs/specs/fanout-harness.md`) — one clone+container per tribe, pooled (≤2), per-tribe PRs.
 
 ## M10 — Remaining caves
 
@@ -178,6 +175,14 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
   the `apply_damage` hook but left it inert (synchronous casting never declares);
   this needs the round loop's declare→resolve phases. Re-enables the skipped
   `tests/combat/test_combat.py::test_damage_disrupts_unresolved_cast`.
+
+- [ ] **Pure tests run Django-free in mixed dirs** (Copilot PR #8): the
+  `scope="session", autouse=True` bootstrap in the engine conftests (`tests/quests`,
+  `tests/zones`, `tests/economy`) pulls `django_db_setup` into the *pure* tests in
+  those dirs, so running one in isolation boots Evennia (verified via
+  `pytest --setup-show`). Full-suite runs are unaffected. Fix consistently across
+  all seven engine conftests (gate the bootstrap to `@pytest.mark.django_db` tests)
+  rather than diverging one — a cross-cutting test-infra change, deferred from M9.
 
 ---
 
