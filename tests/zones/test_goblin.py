@@ -1,9 +1,10 @@
-"""Goblin lair zone tests — M10 leadership-halt wiring.
+"""Goblin lair zone tests — M10 leadership-halt wiring + faction standing.
 
-Validates that the goblin tribe's chief (Snagg) and shaman (Yeek) are
-correctly wired to the M6 repop_manager: killing both within one window halts
-the goblin tribe's repop for 60 minutes and sends gnoll scouts into the empty
-lair (repop.md §3-4).
+Validates that:
+- The goblin tribe's chief (Snagg) and shaman (Yeek) are correctly wired to
+  the M6 repop_manager (repop.md §3-4).
+- Killing goblin mobs shifts the slayer's goblin faction standing (faction.md
+  §2.1, §5; the M4 ↔ M10-goblin tie).
 
 Pure-data groups run without Evennia; engine groups need pytest-django.
 """
@@ -143,3 +144,90 @@ def test_killing_both_goblin_leaders_halts_and_scouts(
         assert factions.get_tension("goblin", "gnoll") > baseline_tension
     finally:
         room.delete()
+
+
+# ---------------------------------------------------------------------------
+# Engine tests — faction standing shifts observable in goblin behavior
+# (faction.md §2.1, §5; the M4 ↔ M10-goblin tie this task delivers)
+# ---------------------------------------------------------------------------
+
+
+def _teardown_room(room: Any, *characters: Any) -> None:
+    """Delete room contents, then the room, then any out-of-room characters."""
+    for obj in list(room.contents):
+        if obj.pk is not None:
+            obj.delete()
+    room.delete()
+    for char in characters:
+        if char.pk is not None:
+            char.delete()
+
+
+def _make_goblin_mob(room: Any, key: str = "goblin-goon", *, is_leader: bool = False) -> Any:
+    from evennia.utils import create  # noqa: PLC0415
+
+    mob = create.create_object("typeclasses.npcs.Mob", key=key, location=room)
+    mob.db.faction_id = "goblin"
+    mob.db.is_leader = is_leader
+    return mob
+
+
+@pytest.mark.django_db
+def test_killing_goblin_member_lowers_player_standing(
+    repop_and_factions: tuple[Any, Any],
+) -> None:
+    """Slaying a rank-and-file goblin drops the killer's goblin standing by kill_member."""
+    from world.factions.config import STANDING_EVENTS  # noqa: PLC0415
+
+    _, factions = repop_and_factions
+    from evennia.utils import create  # noqa: PLC0415
+
+    room = create.create_object("typeclasses.rooms.Room", key="goblin-standing-room-1")
+    char = create.create_object("typeclasses.characters.PlayerCharacter", key="goblin-slayer-1")
+    try:
+        assert factions.get_standing("goblin", str(char.id)) == 0
+        mob = _make_goblin_mob(room)
+        mob.db.last_attacker = char
+        mob.at_death()
+        assert factions.get_standing("goblin", str(char.id)) == STANDING_EVENTS["kill_member"]
+    finally:
+        _teardown_room(room, char)
+
+
+@pytest.mark.django_db
+def test_killing_goblin_leader_lowers_standing_more(
+    repop_and_factions: tuple[Any, Any],
+) -> None:
+    """Chief/shaman counts extra: standing drops by the larger kill_leader hit."""
+    from world.factions.config import STANDING_EVENTS  # noqa: PLC0415
+
+    _, factions = repop_and_factions
+    from evennia.utils import create  # noqa: PLC0415
+
+    room = create.create_object("typeclasses.rooms.Room", key="goblin-standing-room-2")
+    char = create.create_object("typeclasses.characters.PlayerCharacter", key="goblin-slayer-2")
+    try:
+        chief = _make_goblin_mob(room, key="Snagg", is_leader=True)
+        chief.db.last_attacker = char
+        chief.at_death()
+        assert factions.get_standing("goblin", str(char.id)) == STANDING_EVENTS["kill_leader"]
+    finally:
+        _teardown_room(room, char)
+
+
+@pytest.mark.django_db
+def test_unattributed_goblin_death_does_not_shift_standing(
+    repop_and_factions: tuple[Any, Any],
+) -> None:
+    """A goblin dying with no recorded attacker credits no one (faction.md §2.1)."""
+    _, factions = repop_and_factions
+    from evennia.utils import create  # noqa: PLC0415
+
+    room = create.create_object("typeclasses.rooms.Room", key="goblin-standing-room-3")
+    char = create.create_object("typeclasses.characters.PlayerCharacter", key="goblin-bystander")
+    try:
+        mob = _make_goblin_mob(room)  # last_attacker left None
+        mob.at_death()
+        assert factions.get_standing("goblin", str(char.id)) == 0
+    finally:
+        _teardown_room(room, char)
