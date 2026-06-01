@@ -11,10 +11,8 @@ from __future__ import annotations
 
 import pytest
 from evennia.objects.models import ObjectDB
-from evennia.server.models import ServerConfig
 from evennia.utils import create
 
-from world.leaderboard import get_fell_entries
 from world.rules.progression import xp_for_level
 from world.rules.saves import CharacterClass
 
@@ -254,9 +252,12 @@ def test_hardcore_death_deletes_character() -> None:
 
 @pytest.mark.django_db
 def test_hardcore_death_appends_leaderboard_entry() -> None:
-    """WHEN a hardcore character dies THEN a fell entry with final level and season is appended."""
-    ServerConfig.objects.conf("leaderboard_fell", delete=True)
+    """WHEN a hardcore character dies THEN a fell entry is recorded on the SEASON leaderboard.
 
+    Wires the full path end-to-end: death.md §3 hands the entry to the
+    season_manager (R6), which owns the single canonical leaderboard.
+    """
+    manager = create.create_script("world.managers.season_manager.SeasonManager")
     room = create.create_object("typeclasses.rooms.Room", key="dt-room-lb1")
     char = create.create_object(
         "typeclasses.characters.PlayerCharacter",
@@ -270,15 +271,16 @@ def test_hardcore_death_appends_leaderboard_entry() -> None:
         char.traits.hp.current = 5
         char.db.hardcore = True
         char.apply_damage(5)
-        entries = get_fell_entries()
-        assert len(entries) >= 1
-        entry = entries[-1]
-        assert entry["name"] == "dt-hc-lb1"
-        assert entry["level"] == 5
-        assert "season" in entry
-        assert "class" in entry
+        entries = [e for e in manager.per_season() if e.character_name == "dt-hc-lb1"]
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.level == 5
+        assert entry.char_class == "fighter"
+        assert entry.outcome == "fell"
+        assert entry.hardcore is True
+        assert entry.season_number == manager.db.season_number
     finally:
-        ServerConfig.objects.conf("leaderboard_fell", delete=True)
+        manager.delete()
         for obj in list(room.contents):
             for child in list(obj.contents):
                 child.delete()
