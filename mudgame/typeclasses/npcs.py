@@ -42,6 +42,12 @@ class Mob(ObjectParent, DefaultCharacter):
         t.add("morale", "Morale", trait_type="static", base=7, mod=0)
         self.db.char_class = None
         self.db.faction_id = None
+        # True for chief/shaman spawns: their death credits the killer the larger
+        # kill_leader standing hit instead of kill_member (faction.md §2.1).
+        self.db.is_leader = False
+        # The character whose blow this mob last took; CmdAttack records it so a
+        # faction mob's death can credit the right player's standing (§2.1).
+        self.db.last_attacker = None
         # Set when this mob is a repop spawn-point instance (repop.md §1); its
         # death is reported to the repop_manager so the tribe respawns and the
         # leadership halt + rival scouting can fire (repop.md §3-4).
@@ -63,7 +69,45 @@ class Mob(ObjectParent, DefaultCharacter):
         """
         if self.location:
             self.location.msg_contents(f"{self.key} has been slain!", exclude=[])
+        self._credit_faction_kill()
         self._report_death_to_repop()
+
+    def _credit_faction_kill(self) -> None:
+        """Shift the slayer's standing with this mob's faction (faction.md §2.1).
+
+        This is the M4↔M9 tie: killing kobolds drives the killer's kobold
+        standing down (kill_member -3, or kill_leader -8 for a chief/shaman), so
+        the inherited ``aggro_check`` then sees ``hostile``/``kill-on-sight`` and
+        the surviving tribe turns on the player (faction.md §5). No-op for a mob
+        with no faction or no recorded attacker (e.g. a death from other causes).
+        """
+        faction_id: object = self.db.faction_id
+        if not faction_id:
+            return
+        player = self._responsible_player()
+        player_key = str(getattr(player, "id", "") or "")
+        if not player_key:
+            return
+        results = search_script("faction_manager")
+        if not results:
+            return
+        mgr = results[0]
+        if self.db.is_leader:
+            mgr.apply_kill_leader(str(faction_id), player_key)
+        else:
+            mgr.apply_kill_member(str(faction_id), player_key)
+
+    def _responsible_player(self) -> object | None:
+        """The character who earns kill credit for this mob's death.
+
+        Normally the recorded ``last_attacker``; when that attacker is a hired
+        henchman the credit passes to its employer, so a player clearing a tribe
+        through henchmen still earns the standing shift (henchmen.md §4).
+        """
+        attacker: object = self.db.last_attacker
+        if attacker is not None and getattr(attacker, "IS_HENCHMAN", False):
+            return attacker.db.employer
+        return attacker
 
     def _report_death_to_repop(self) -> None:
         """Notify the repop_manager of this mob's death, if it is a spawn point."""

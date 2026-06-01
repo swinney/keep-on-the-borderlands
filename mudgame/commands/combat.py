@@ -58,6 +58,12 @@ class CmdAttack(Command):  # type: ignore[misc]
             caller.msg(f"You can't attack {target.key}.")
             return
 
+        # Record the aggressor so the target's death can credit faction standing
+        # to the right player (faction.md §2.1); set on any swing, not just hits,
+        # so the last attacker is known regardless of the killing blow's roll.
+        if target.attributes.has("last_attacker"):
+            target.db.last_attacker = caller
+
         # Roll through the dice seam (centralised notation/validation); pure
         # resolution below consumes the rolled values.
         rng = random.Random()

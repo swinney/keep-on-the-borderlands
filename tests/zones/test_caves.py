@@ -437,3 +437,169 @@ def test_killing_both_kobold_leaders_halts_and_scouts(
         assert factions.get_tension("kobold", "orc_vol") > baseline_tension
     finally:
         room.delete()
+
+
+# ---------------------------------------------------------------------------
+# Engine tests — faction standing shifts are observable in kobold behavior
+# (faction.md §2.1, §5; the M4↔M9 tie this task delivers)
+# ---------------------------------------------------------------------------
+
+
+def _teardown_room(room: Any, *characters: Any) -> None:
+    """Delete a room's remaining contents, the room, then any out-of-room chars.
+
+    Mob.at_death leaves the base mob in place, so the room still holds it; clear
+    contents first to avoid Evennia relocating soon-to-be-deleted objects to a
+    deleted home during room.delete().
+    """
+    for obj in list(room.contents):
+        if obj.pk is not None:
+            obj.delete()
+    room.delete()
+    for char in characters:
+        if char.pk is not None:
+            char.delete()
+
+
+def _make_kobold_mob(room: Any, key: str = "kobold-grunt", *, is_leader: bool = False) -> Any:
+    from evennia.utils import create  # noqa: PLC0415
+
+    mob = create.create_object("typeclasses.npcs.Mob", key=key, location=room)
+    mob.db.faction_id = "kobold"
+    mob.db.is_leader = is_leader
+    return mob
+
+
+@pytest.mark.django_db
+def test_killing_kobold_member_lowers_player_standing(
+    repop_and_factions: tuple[Any, Any],
+) -> None:
+    """Slaying a rank-and-file kobold drops the killer's kobold standing by 3."""
+    from world.factions.config import STANDING_EVENTS  # noqa: PLC0415
+
+    _, factions = repop_and_factions
+    from evennia.utils import create  # noqa: PLC0415
+
+    room = create.create_object("typeclasses.rooms.Room", key="caves-standing-room-1")
+    char = create.create_object("typeclasses.characters.PlayerCharacter", key="kobold-slayer-1")
+    try:
+        assert factions.get_standing("kobold", str(char.id)) == 0
+        mob = _make_kobold_mob(room)
+        mob.db.last_attacker = char
+        mob.at_death()
+        assert factions.get_standing("kobold", str(char.id)) == STANDING_EVENTS["kill_member"]
+    finally:
+        _teardown_room(room, char)
+
+
+@pytest.mark.django_db
+def test_killing_kobold_leader_lowers_standing_more(
+    repop_and_factions: tuple[Any, Any],
+) -> None:
+    """A chief/shaman counts extra: standing drops by the larger kill_leader hit."""
+    from world.factions.config import STANDING_EVENTS  # noqa: PLC0415
+
+    _, factions = repop_and_factions
+    from evennia.utils import create  # noqa: PLC0415
+
+    room = create.create_object("typeclasses.rooms.Room", key="caves-standing-room-2")
+    char = create.create_object("typeclasses.characters.PlayerCharacter", key="kobold-slayer-2")
+    try:
+        chief = _make_kobold_mob(room, key="Sharptooth", is_leader=True)
+        chief.db.last_attacker = char
+        chief.at_death()
+        assert factions.get_standing("kobold", str(char.id)) == STANDING_EVENTS["kill_leader"]
+    finally:
+        _teardown_room(room, char)
+
+
+@pytest.mark.django_db
+def test_unattributed_kobold_death_does_not_shift_standing(
+    repop_and_factions: tuple[Any, Any],
+) -> None:
+    """A kobold dying with no recorded attacker credits no one (faction.md §2.1)."""
+    _, factions = repop_and_factions
+    from evennia.utils import create  # noqa: PLC0415
+
+    room = create.create_object("typeclasses.rooms.Room", key="caves-standing-room-3")
+    char = create.create_object("typeclasses.characters.PlayerCharacter", key="kobold-bystander")
+    try:
+        mob = _make_kobold_mob(room)  # last_attacker left None
+        mob.at_death()
+        assert factions.get_standing("kobold", str(char.id)) == 0
+    finally:
+        _teardown_room(room, char)
+
+
+@pytest.mark.django_db
+def test_attack_command_records_last_attacker() -> None:
+    """The attack command stamps the aggressor so a death can credit the kill."""
+    from evennia.utils import create  # noqa: PLC0415
+
+    from commands.combat import CmdAttack  # noqa: PLC0415
+
+    room = create.create_object("typeclasses.rooms.Room", key="caves-attack-room")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter", key="kobold-fighter", location=room
+    )
+    mob = _make_kobold_mob(room)
+    try:
+        cmd = CmdAttack()
+        cmd.caller = char
+        cmd.args = f" {mob.key}"
+        cmd.parse()
+        cmd.func()
+        assert mob.db.last_attacker is char
+    finally:
+        _teardown_room(room, char)
+
+
+@pytest.mark.django_db
+def test_henchman_kill_credits_employer(repop_and_factions: tuple[Any, Any]) -> None:
+    """When a hired henchman lands the kill, the standing shift falls on its employer."""
+    from world.factions.config import STANDING_EVENTS  # noqa: PLC0415
+
+    _, factions = repop_and_factions
+    from evennia.utils import create  # noqa: PLC0415
+
+    room = create.create_object("typeclasses.rooms.Room", key="caves-henchman-room")
+    employer = create.create_object("typeclasses.characters.PlayerCharacter", key="kobold-employer")
+    henchman = create.create_object("typeclasses.npcs.Henchman", key="hired-blade", location=room)
+    henchman.db.employer = employer
+    try:
+        mob = _make_kobold_mob(room)
+        mob.db.last_attacker = henchman
+        mob.at_death()
+        assert factions.get_standing("kobold", str(employer.id)) == STANDING_EVENTS["kill_member"]
+    finally:
+        _teardown_room(room, employer)
+
+
+@pytest.mark.django_db
+def test_kobold_kills_drive_standing_to_kos_and_surviving_kobold_aggros(
+    repop_and_factions: tuple[Any, Any],
+) -> None:
+    """End-to-end M4↔M9 tie: enough kobold kills turn the tribe kill-on-sight.
+
+    Slaying ten kobolds drops the killer to kill-on-sight; a fresh kobold then
+    attacks the moment the player enters its room (faction.md §2.1 → §5).
+    """
+    _, factions = repop_and_factions
+    from evennia.utils import create  # noqa: PLC0415
+
+    room = create.create_object("typeclasses.rooms.Room", key="caves-kos-room")
+    char = create.create_object("typeclasses.characters.PlayerCharacter", key="kobold-scourge")
+    try:
+        for i in range(10):
+            mob = _make_kobold_mob(room, key=f"kobold-grunt-{i}")
+            mob.db.last_attacker = char
+            mob.at_death()
+        assert factions.standing_band("kobold", str(char.id)) == "kill-on-sight"
+
+        _make_kobold_mob(room, key="kobold-sentry-survivor")
+        messages: list[str] = []
+        char.msg = lambda text, **_kw: messages.append(str(text))
+        char.move_to(room, quiet=True)
+        assert any("attacks" in m.lower() for m in messages)
+    finally:
+        _teardown_room(room, char)
