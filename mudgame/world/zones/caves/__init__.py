@@ -1,18 +1,36 @@
-"""The Caves of Chaos zone — the humanoid lairs (M9 kobold slice).
+"""The Caves of Chaos zone — the humanoid lairs (fanout-harness.md §3).
 
-Exposes the standard zone interface. The data lists are pure (Evennia-free) and
-importable for validation without booting the server; ``build`` is re-exported
-from build.py, which defers its Evennia import until called, so importing this
-package stays Evennia-free.
+The zone is the shared ravine hub (``_hub``) plus every cave-tribe subpackage
+discovered under ``caves/`` (``discovery``). This package re-exports the standard
+zone interface; the data lists are *aggregates* of the hub data and every
+discovered tribe's data, so validation suites that import ``caves.ROOMS`` (etc.)
+see the whole zone. All data is pure (Evennia-free); ``build`` defers its Evennia
+import until called, so importing this package stays Evennia-free.
 """
 
 from __future__ import annotations
 
+from typing import Any
+
+from world.zones.caves import _hub, discovery
 from world.zones.caves.build import build
-from world.zones.caves.exits import EXITS
-from world.zones.caves.mobs import MOB_TEMPLATES
-from world.zones.caves.npcs import NPCS
-from world.zones.caves.rooms import ROOMS, ZONE
-from world.zones.caves.spawns import SPAWNS
+
+ZONE = _hub.ZONE
+
+
+def _aggregate(attr: str, tribes: list[Any]) -> list[Any]:
+    """Concatenate the hub's ``HUB_<attr>`` with every tribe's ``<attr>``."""
+    out: list[Any] = list(getattr(_hub, f"HUB_{attr}", []))
+    for tribe in tribes:
+        out.extend(getattr(tribe, attr, []))
+    return out
+
+
+_discovered = discovery.tribes()
+ROOMS = _aggregate("ROOMS", _discovered)
+EXITS = _aggregate("EXITS", _discovered)
+MOB_TEMPLATES = _aggregate("MOB_TEMPLATES", _discovered)
+SPAWNS = _aggregate("SPAWNS", _discovered)
+NPCS = _aggregate("NPCS", _discovered)
 
 __all__ = ["EXITS", "MOB_TEMPLATES", "NPCS", "ROOMS", "SPAWNS", "ZONE", "build"]

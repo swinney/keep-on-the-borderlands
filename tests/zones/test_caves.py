@@ -17,11 +17,15 @@ import pytest
 from world.factions.config import FACTIONS
 from world.repop import config as repop_cfg
 from world.zones import caves
-from world.zones.caves.exits import EXITS
-from world.zones.caves.mobs import MOB_TEMPLATES
-from world.zones.caves.rooms import ROOMS
-from world.zones.caves.spawns import SPAWNS
+from world.zones.caves import discovery, kobold
 from world.zones.spawn_registry import spawn_points
+
+# Aggregated zone data (ravine hub + every discovered tribe), exposed off the
+# package now that rooms/exits/mobs/spawns live in per-tribe subpackages.
+EXITS = caves.EXITS
+MOB_TEMPLATES = caves.MOB_TEMPLATES
+ROOMS = caves.ROOMS
+SPAWNS = caves.SPAWNS
 
 # Rooms that are part of a (dark) lair vs the open-air ravine spine.
 RAVINE_ROOMS: frozenset[str] = frozenset({"ravine", "ravine_north", "ravine_mid", "ravine_south"})
@@ -108,7 +112,7 @@ def test_mob_factions_are_valid_ids() -> None:
 
 
 def test_kobold_mobs_use_kobold_faction() -> None:
-    assert all(m["faction"] == "kobold" for m in MOB_TEMPLATES)
+    assert all(m["faction"] == "kobold" for m in kobold.MOB_TEMPLATES)
 
 
 def test_mob_ascending_ac_in_range() -> None:
@@ -141,7 +145,7 @@ def test_spawn_rooms_exist() -> None:
 
 
 def test_kobold_tribe_has_exactly_one_chief_and_one_shaman() -> None:
-    roles = [s.get("leader_role") for s in SPAWNS if s.get("is_leader")]
+    roles = [s.get("leader_role") for s in kobold.SPAWNS if s.get("is_leader")]
     assert roles.count("chief") == 1, "kobold tribe needs exactly one chief spawn"
     assert roles.count("shaman") == 1, "kobold tribe needs exactly one shaman spawn"
 
@@ -179,7 +183,7 @@ def test_spawn_points_resolve_faction_from_template() -> None:
 
 def test_derived_points_have_one_chief_and_one_shaman_leader() -> None:
     """The two kobold leaders the R3 halt depends on survive derivation."""
-    points = spawn_points("caves", SPAWNS, MOB_TEMPLATES)
+    points = spawn_points("caves", kobold.SPAWNS, kobold.MOB_TEMPLATES)
     leaders = [p for p in points if p.is_leader]
     roles = [p.leader_role for p in leaders]
     assert roles.count("chief") == 1
@@ -603,3 +607,20 @@ def test_kobold_kills_drive_standing_to_kos_and_surviving_kobold_aggros(
         assert any("attacks" in m.lower() for m in messages)
     finally:
         _teardown_room(room, char)
+
+
+# ---------------------------------------------------------------------------
+# Group 6 — Tribe discovery (fanout-harness.md §3; pure, no Evennia)
+# ---------------------------------------------------------------------------
+
+
+def test_discovery_finds_kobold_tribe() -> None:
+    names = [m.__name__.rsplit(".", 1)[-1] for m in discovery.tribes()]
+    assert "kobold" in names
+    assert all(hasattr(m, "build") for m in discovery.tribes())
+
+
+def test_discovery_skips_private_and_dunder() -> None:
+    names = [m.__name__.rsplit(".", 1)[-1] for m in discovery.tribes()]
+    assert not any(n.startswith("_") for n in names)
+    assert "__pycache__" not in names

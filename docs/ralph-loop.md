@@ -202,3 +202,29 @@ Arch (no SELinux — see ADR 0001). In practice, prefer the `make` targets
 Once the loop is stable, restrict outbound network to just the Claude API
 endpoint and your git remote. Use `--network` with a custom Podman network or
 run behind a transparent proxy. Not v1, but worth knowing.
+
+### Fan-out for the Content Layer (M10+)
+
+The content layer (cave tribes) is embarrassingly parallel — each tribe touches
+zero files another tribe touches. The fan-out harness runs ≤ N tribe loops
+concurrently in separate local clones + containers and opens a per-tribe PR
+when each loop hits its gate.
+
+Full design rationale: `docs/specs/fanout-harness.md`.
+
+**Make targets:**
+
+| Target | Action |
+|---|---|
+| `make fanout` | Launch M10 tribe fan-out (clones, branches, pool of 2, Sonnet) |
+| `make fanout-dry` | Print the full plan — clones, branches, task files, launch commands — without running anything |
+| `make fanout-status` | Aggregate turn / state / last-commit digest across all active tribe clones |
+| `make fanout-land` | Merge tribe PRs that are CI-green + have no Copilot inline comments |
+
+**Model**: Sonnet on each tribe loop (content/replication); Opus on the serial
+integration task (minotaur maze + cross-faction wiring) that follows all merges.
+
+**Isolation model**: one local `git clone` per tribe under `../kotb-wt/m10-<tribe>/`,
+origin reset to the GitHub remote so `git push` and PRs target GitHub. The
+canonical `tasks.md` is never edited by a tribe loop — each clone gets a
+scoped `.ralph/tribe-tasks.md` instead.

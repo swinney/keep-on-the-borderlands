@@ -35,7 +35,7 @@
 # parse miss), and replays the SAME task — an exhausted window pauses the loop,
 # it does not halt it.
 #
-# Status outputs (all under /workspace/.ralph/, gitignored — read via `make status`):
+# Status outputs (all under $RALPH_STATE_DIR/, default .ralph/, gitignored — read via `make status`):
 #   log/turn-<n>.txt   per-turn output, line-buffered so `tail -f` is live
 #   current.json       heartbeat: the turn running right now (task, model, start)
 #   status.jsonl       objective git-derived record appended per completed turn
@@ -51,6 +51,8 @@ once=0
 turn_timeout=${RALPH_TURN_TIMEOUT:-1200}
 max_stalls=${RALPH_MAX_STALLS:-2}
 limit_poll=${RALPH_LIMIT_POLL:-900}
+tasks_file=${RALPH_TASKS:-tasks.md}
+state_dir=${RALPH_STATE_DIR:-.ralph}
 
 if [ ! -f PROMPT.md ]; then
   echo "ralph: PROMPT.md missing in $(pwd) — refusing to start" >&2
@@ -78,8 +80,8 @@ if [ ! -f "$HOME/.claude.json" ]; then
   fi
 fi
 
-mkdir -p .ralph/log
-turn_file=.ralph/turn
+mkdir -p "$state_dir/log"
+turn_file="$state_dir/turn"
 turn=$(cat "$turn_file" 2>/dev/null || echo 0)
 
 model_args=()
@@ -89,16 +91,17 @@ head_rev() { git rev-parse HEAD 2>/dev/null || echo none; }
 
 # The first unchecked tasks.md task (what the upcoming turn should pick up).
 first_task() {
-  grep -m1 '^- \[ \] ' tasks.md 2>/dev/null \
-    | sed -E 's/^- \[ \] *//; s/⛔ MILESTONE GATE.*/[milestone gate]/'
+  grep -m1 '^- \[ \] ' "$tasks_file" 2>/dev/null \
+    | sed -E 's/^- \[ \] *//; s/⛔ MILESTONE GATE.*/[milestone gate]/; s/⛔ TRIBE GATE.*/[tribe gate]/'
 }
 
 # Emit a status record from RJ_* env vars. mode=current overwrites the
-# heartbeat (.ralph/current.json); mode=append adds a line to the objective,
-# git-derived feed (.ralph/status.jsonl). No-op if python3 is unavailable.
+# heartbeat ($RALPH_STATE_DIR/current.json); mode=append adds a line to the
+# objective, git-derived feed ($RALPH_STATE_DIR/status.jsonl). No-op if python3
+# is unavailable.
 emit_status() {
   command -v python3 >/dev/null 2>&1 || return 0
-  RJ_MODE="$1" python3 - <<'PY' 2>/dev/null || true
+  RJ_MODE="$1" RJ_STATE_DIR="$state_dir" python3 - <<'PY' 2>/dev/null || true
 import json, os
 def opt(k):
     v = os.environ.get(k, "")
@@ -116,9 +119,9 @@ rec = {
     "subject": opt("RJ_SUBJECT"),
 }
 if os.environ["RJ_MODE"] == "current":
-    json.dump(rec, open(".ralph/current.json", "w"), indent=2)
+    json.dump(rec, open(os.environ["RJ_STATE_DIR"] + "/current.json", "w"), indent=2)
 else:
-    with open(".ralph/status.jsonl", "a") as f:
+    with open(os.environ["RJ_STATE_DIR"] + "/status.jsonl", "a") as f:
         f.write(json.dumps(rec) + "\n")
 PY
 }
@@ -127,7 +130,7 @@ turn_ec=0
 run_turn() {
   turn=$((turn + 1))
   echo "$turn" >"$turn_file"
-  local log=".ralph/log/turn-${turn}.txt"
+  local log="$state_dir/log/turn-${turn}.txt"
   local task started ended before after committed sha subject
   task=$(first_task)
   started=$(date -Is)
@@ -177,7 +180,7 @@ trap 'echo; echo "ralph: caught SIGINT at turn $turn, exiting"; exit 130' INT
 if [ "$once" -eq 1 ]; then
   echo "ralph: single turn (--once) starting from turn $turn"
   run_turn
-  echo "ralph: --once complete — log at .ralph/log/turn-${turn}.txt"
+  echo "ralph: --once complete — log at $state_dir/log/turn-${turn}.txt"
   exit "$turn_ec"
 fi
 
@@ -193,7 +196,7 @@ while true; do
   # so it must NOT count toward max-stalls. Wait for the window to refresh, then
   # replay the SAME task. A genuine timeout (124) with no limit message falls
   # through to the stall logic, as before.
-  last_log=".ralph/log/turn-${turn}.txt"
+  last_log="$state_dir/log/turn-${turn}.txt"
   if [ "$turn_ec" -ne 0 ] &&
     grep -qiE "hit your (session|weekly|opus|usage) limit" "$last_log" 2>/dev/null; then
     reset=$(grep -oiE "resets [^.]*" "$last_log" | head -1)

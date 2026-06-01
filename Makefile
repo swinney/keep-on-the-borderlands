@@ -20,17 +20,21 @@ RUN_FLAGS := \
   -v $(WORKSPACE):/workspace \
   -v $(CLAUDE_DIR):/home/claude/.claude
 
-.PHONY: help build login loop loop-once shell clean status
+.PHONY: help build login loop loop-once shell clean status fanout fanout-dry fanout-status fanout-land
 
 help:
 	@echo "Targets:"
-	@echo "  build      build the kotb-ralph container image"
-	@echo "  login      one-time: run 'claude login' to authenticate via Pro/Max"
-	@echo "  loop       start the Ralph Loop in the foreground (Ctrl-C to stop)"
-	@echo "  loop-once  run one Claude Code turn against PROMPT.md (no loop)"
-	@echo "  status     print a digest of loop status (current turn, recent turns, STATUS)"
-	@echo "  shell      drop into an interactive shell in the container"
-	@echo "  clean      remove the container image (preserves saved auth)"
+	@echo "  build          build the kotb-ralph container image"
+	@echo "  login          one-time: run 'claude login' to authenticate via Pro/Max"
+	@echo "  loop           start the Ralph Loop in the foreground (Ctrl-C to stop)"
+	@echo "  loop-once      run one Claude Code turn against PROMPT.md (no loop)"
+	@echo "  status         print a digest of loop status (current turn, recent turns, STATUS)"
+	@echo "  shell          drop into an interactive shell in the container"
+	@echo "  clean          remove the container image (preserves saved auth)"
+	@echo "  fanout         launch M10 tribe fan-out (clone/branch/pool, default concurrency 2)"
+	@echo "  fanout-dry     dry-run: print the fanout plan (clones, branches, tasks, launch cmds)"
+	@echo "  fanout-status  aggregate status digest across all active tribe clones"
+	@echo "  fanout-land    merge clean tribe PRs (CI green + no Copilot inline comments)"
 
 build:
 	podman build \
@@ -71,6 +75,18 @@ shell:
 
 status:
 	@./scripts/ralph-status.sh
+
+fanout:
+	./scripts/fanout.sh
+
+fanout-dry:
+	./scripts/fanout.sh --dry-run
+
+fanout-status:
+	@./scripts/fanout-status.sh
+
+fanout-land:
+	./scripts/fanout-land.sh
 
 clean:
 	podman rmi $(IMAGE) || true
