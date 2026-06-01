@@ -13,7 +13,7 @@ from world.rules.henchmen import (
     VALID_ORDERS,
 )
 
-_PARSE_SPLIT = 2   # split args into at most 3 parts (maxsplit=2)
+_PARSE_SPLIT = 2  # split args into at most 3 parts (maxsplit=2)
 _PARTS_WITH_ARG = 3  # parts list has all three slots when an arg is present
 
 
