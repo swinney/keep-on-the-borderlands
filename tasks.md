@@ -121,7 +121,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 
 ## M9 — Kobold cave vertical slice ⭐ (critical integration milestone)
 
-- [ ] `world/zones/caves/` kobold lair rooms + kobold mobs
+- [x] `world/zones/caves/` kobold lair rooms + kobold mobs
 - [ ] Kobold chief + shaman leaders wired to the M6 leadership-halt + rival scouting
 - [ ] Faction standing shifts observable in kobold behavior (ties M4 ↔ M9)
 - [ ] Guildmaster tribe-clearing quest + treasure→XP-on-secure loop
