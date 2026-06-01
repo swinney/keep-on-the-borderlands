@@ -26,9 +26,9 @@
   timeouts on one hard task triggered the self-halt; a human escalated that turn
   to the stronger model and finished it in minutes. The model-by-risk strategy
   is not theory — it's the documented recovery path.
-- **As of this writing:** 74 commits, 20 unattended loop turns, 242 passing
-  tests, through M4 (faction state machine). Zero red commits reached `main`.
-  M4 ran end-to-end unattended on Sonnet and self-halted at its gate.
+- **As of this writing:** 82 commits, 24 unattended loop turns, 255 passing
+  tests, through M5 (henchmen). Zero red commits reached `main`. M4 *and* M5
+  both ran end-to-end unattended on Sonnet and self-halted at their gates.
 
 ---
 
@@ -148,6 +148,16 @@ no stray debug scaffolding). `tests/faction` ended green (14 tests; 242 total).
 **The lesson made concrete:** match model tier to task *type*, not size — M4 is
 pure-ish logic against a detailed spec (the loop's sweet spot), whereas M3's
 stall was stateful object-lifecycle work where a wrong mental model compounds.
+
+### M5 — Henchmen (complete; second clean unattended Sonnet run)
+Tavern hire flow (reaction roll, CHA-table cap, cost), follow/order commands +
+combat AI, OSE loyalty/morale (flee/refuse thresholds), and XP/treasure share +
+permadeath/re-hire. Notably, the task we expected to be risky — **follow/order
+commands + combat AI**, the stateful/engine-coupled kind that stalled M3 — ran
+clean on Sonnet under closer supervision. M5 completed all four tasks unattended
+and self-halted at its gate; `tests/henchmen` green (255 tests total). Two clean
+unattended milestones in a row (M4, M5) is the loop hitting its stride on
+well-specified work. Batched with M6 into a single PR (see §10).
 
 ---
 
@@ -329,16 +339,16 @@ the lean context file, the model strategy, and the milestone-gate sentinel.
 
 | Metric | Value |
 |---|---|
-| Total commits | 74 |
-| Unattended loop turns | 20 |
-| Models used | Sonnet 4.6 (bulk; ran all of M4 unattended) · Opus 4.8 (config-critical turns, M2-turn-1 supervise, M3-task-3 stall recovery) |
-| Tests | 242 passing / 75 Phase-0 stubs skipped |
-| Pure rules / logic modules | 7 (`dice`, `abilities`, `progression`, `combat`, `saves`, `spells`, `factions`) |
+| Total commits | 82 |
+| Unattended loop turns | 24 |
+| Models used | Sonnet 4.6 (bulk; ran all of M4 and M5 unattended) · Opus 4.8 (config-critical turns, M2-turn-1 supervise, M3-task-3 stall recovery) |
+| Tests | 255 passing / 62 Phase-0 stubs skipped |
+| Pure rules / logic modules | 8 (`dice`, `abilities`, `progression`, `combat`, `saves`, `spells`, `factions`, `henchmen`) |
 | Red commits reaching `main` | 0 |
-| Milestones complete | Phase 0, M0, M1, M2, M3, M4 |
+| Milestones complete | Phase 0, M0, M1, M2, M3, M4, M5 |
 | Loop tasks needing human recovery | 1 (M3 task 3 — debugging spiral, §5.10) |
-| Milestones run fully unattended | 1 (M4 — clean Sonnet run, self-halted at gate) |
-| Copilot-reviewed PRs | #1 (~13 findings) · #2 (clean) · #3 (9 findings incl. 1 real bug) · #4 (M4, pending) |
+| Milestones run fully unattended | 2 (M4, M5 — clean Sonnet runs, self-halted at gates) |
+| Copilot-reviewed PRs | #1 (~13 findings) · #2 (clean) · #3 (9, incl. 1 real bug) · #4 (5, incl. 2 real bugs) |
 
 ---
 
@@ -365,8 +375,53 @@ the lean context file, the model strategy, and the milestone-gate sentinel.
 
 ---
 
-## 10. How this log is maintained
+## 10. Scaling the loop — where parallelism helps (and where it doesn't)
 
-A living document, updated by a human (or supervised) session at each milestone
-gate — *not* by the unattended loop itself (see §5.6). Each milestone appends:
-what shipped, what broke, and what we changed in the harness as a result.
+The instinct when asked to "go faster" is *more containers, more agents in
+parallel*. For a convergence loop that's mostly **wrong** — and seeing why is
+the interesting part.
+
+**The loop is serial *within* a milestone, by design.** Convergence comes from
+*one task → one commit → clean tree*. Every systems-layer task touches shared
+files — `characters.py`, `npcs.py`, the `pyproject` mypy-scope line, the shared
+test dirs. Two agents on the same milestone collide on those files; you'd trade
+build time for merge-conflict time. **Don't parallelize the loop.**
+
+**The architecture is parallel *across* content, also by design.** CLAUDE.md §3
+mandates "modular zones, each its own package under `world/zones/` — the loop
+works one zone without breaking another." That is a *parallelization charter*.
+The systems layer (M4–M6: faction, henchmen, repop) is shared-state and stays
+serial; the content layer (M7–M11: zones, tribes) is embarrassingly parallel.
+**M10 is the extreme case — five tribes (orc/goblin/hobgoblin/bugbear/gnoll),
+each an independent package → five containers at once.**
+
+So velocity comes from four moves, not from cloning the loop:
+
+1. **Batch clean milestones per PR.** The biggest *serial latency* is the
+   human-gate cycle (PR → CI → review → fixes → merge), not the turns. Run
+   several clean milestones on one branch, review once. (M5+M6 batched this way.)
+2. **Auto-merge when the independent reviewer is clean.** CI green + zero Copilot
+   findings → merge without a human round-trip. Stop for a human only when a
+   finding needs judgment.
+3. **Fan-out harness for the content layer.** From M7, give each container its
+   own **git worktree** + its own **`.ralph/` state dir** (today the runner
+   hard-codes one `/workspace/.ralph` with a single turn counter — two
+   containers on one bind-mount corrupt each other's loop state and git index).
+   Then run zones/tribes concurrently and merge as each lands.
+4. **Match model tier to task *type*, from turn 1.** Opus-from-start on
+   stateful/object-lifecycle milestones (M6's Scripts/timers/reset hooks) to
+   avoid the stall-then-escalate waste (§5.10); Sonnet on pure-logic ones.
+
+**The non-obvious lesson for the slide:** *you don't speed up a convergence loop
+by parallelizing the loop — you parallelize the independent units the
+architecture was designed to produce.* The work to make that possible was front-
+loaded into the spec corpus and the modular-zone decision, long before a single
+line of zone code existed.
+
+---
+
+## 11. How this log is maintained
+
+A living document, updated by a human (or supervised) session **as work
+progresses** — *not* by the unattended loop itself (see §5.6). Each milestone
+appends: what shipped, what broke, and what we changed in the harness as a result.

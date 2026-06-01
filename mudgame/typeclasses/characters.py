@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 import evennia
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.objects.objects import DefaultCharacter
 from evennia.server.models import ServerConfig
-from evennia.utils import create, lazy_property
-from evennia.utils.search import search_object_by_tag
+from evennia.utils import create, lazy_property, logger
+from evennia.utils.search import search_object_by_tag, search_script
 
-from world.leaderboard import append_fell
 from world.rules.abilities import ability_modifier
 from world.rules.combat import armor_class, is_dead
+from world.rules.henchmen import henchman_should_follow
 from world.rules.progression import xp_for_level
 from world.rules.saves import CharacterClass
 
@@ -150,16 +148,22 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         else:
             class_name = "unknown"
         final_level = int(self.traits.level.value)  # type: ignore[union-attr]
-        season: int = ServerConfig.objects.conf("current_season", default=1) or 1
 
-        entry: dict[str, object] = {
-            "name": name,
-            "class": class_name,
-            "level": final_level,
-            "season": season,
-            "recorded_at": datetime.now(tz=UTC).isoformat(),
-        }
-        append_fell(entry)
+        # The season_manager owns the leaderboard (death.md §10: this path only
+        # *writes* the fell entry; the mechanics live with seasonal reset, R6).
+        # It stamps the season + timestamp itself. In a running game the manager
+        # always exists; if it is somehow absent, log loudly rather than silently
+        # losing a permadeath record.
+        managers = search_script("season_manager")
+        if managers:
+            managers[0].record_fell(name, class_name, final_level)
+            season = managers[0].db.season_number
+        else:
+            season = ServerConfig.objects.conf("current_season", default=1) or 1
+            logger.log_err(
+                f"season_manager not found; hardcore fell entry for {name} "
+                f"(L{final_level}, season {season}) was NOT recorded on the leaderboard"
+            )
 
         message = f"{name} the {class_name} has fallen at level {final_level}, season {season}."
         if evennia.SESSION_HANDLER is not None:
@@ -179,13 +183,21 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
             self._default_death()
 
     def at_post_move(self, source_location: object | None, **kwargs: object) -> None:
-        """After moving to a new room, trigger mob aggro checks for all faction mobs present."""
+        """After moving: trigger mob aggro and move following henchmen."""
         super().at_post_move(source_location, **kwargs)
         if self.location is None:
             return
         for obj in list(self.location.contents):
             if getattr(obj, "IS_MOB", False) and callable(getattr(obj, "aggro_check", None)):
                 obj.aggro_check(self)
+        if source_location is not None:
+            for obj in list(source_location.contents):
+                if (
+                    getattr(obj, "IS_HENCHMAN", False)
+                    and obj.db.employer == self
+                    and henchman_should_follow(str(obj.db.order or ""))
+                ):
+                    obj.move_to(self.location, quiet=True)
 
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]

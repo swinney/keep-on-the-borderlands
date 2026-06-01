@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from evennia.contrib.rpg.traits import TraitHandler
 from evennia.objects.objects import DefaultCharacter
-from evennia.utils import lazy_property
+from evennia.utils import create, lazy_property
 from evennia.utils.search import search_script
 
 from world.rules.abilities import ability_modifier
@@ -89,6 +89,40 @@ class Mob(ObjectParent, DefaultCharacter):
         band: str = mgr.standing_band(str(faction_id), player_key)
         if band in ("hostile", "kill-on-sight"):
             self.at_aggro(character)
+
+
+class Henchman(Mob):
+    """AI follower hired from the Keep tavern (docs/specs/henchmen.md §5).
+
+    The employer holds a reference in db.employer; the henchman's current
+    standing order lives in db.order (default "follow").
+    """
+
+    IS_HENCHMAN: bool = True
+
+    def at_object_creation(self) -> None:
+        super().at_object_creation()
+        self.db.employer = None  # PlayerCharacter who hired this henchman
+        self.db.order = "follow"  # standing order (henchmen.md §5)
+        self.db.loyalty = 7  # seeded at hire; adjusted by event table (§2)
+        self.db.own_target = None  # active when order == "attack"
+
+    def at_death(self) -> None:
+        """Permadeath: drop gear to corpse, free party slot, delete (henchmen.md §6)."""
+        loc = self.location
+        if loc:
+            loc.msg_contents(f"{self.key} has been slain!", exclude=[])
+            if self.contents:
+                corpse = create.create_object(
+                    "typeclasses.objects.Corpse",
+                    key=f"corpse of {self.key}",
+                    location=loc,
+                )
+                corpse.db.owner_key = self.key
+                for item in list(self.contents):
+                    item.move_to(corpse, quiet=True)
+                    item.home = loc
+        self.delete()
 
 
 class TargetDummy(Mob):

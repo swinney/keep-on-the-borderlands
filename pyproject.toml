@@ -101,7 +101,7 @@ disallow_untyped_decorators = true
 # managers, commands) stays OUT of strict scope: its untyped base classes make
 # --strict intractable. Restore the evennia/django override below at M2, when
 # first-party code first imports evennia.
-files = ["tests", "mudgame/world/rules", "mudgame/world/factions"]
+files = ["tests", "mudgame/world/rules", "mudgame/world/factions", "mudgame/world/henchmen", "mudgame/world/repop", "mudgame/world/season"]
 
 # First-party engine tests (tests/engine/) now import evennia/django, so the
 # missing-imports override below is "used" — restoring it earlier triggered
