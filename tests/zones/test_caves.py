@@ -362,8 +362,8 @@ def test_wilderness_to_caves_round_trip(built_wilderness_and_caves: None) -> Non
 def _kobold_leaders() -> tuple[Any, Any]:
     """The derived chief and shaman SpawnPoints for the kobold tribe."""
     points = spawn_points("caves", SPAWNS, MOB_TEMPLATES)
-    chief = next(p for p in points if p.leader_role == "chief")
-    shaman = next(p for p in points if p.leader_role == "shaman")
+    chief = next(p for p in points if p.faction == "kobold" and p.leader_role == "chief")
+    shaman = next(p for p in points if p.faction == "kobold" and p.leader_role == "shaman")
     return chief, shaman
 
 
