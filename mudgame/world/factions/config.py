@@ -149,4 +149,8 @@ FACTIONS: dict[str, FactionDef] = {
     "owlbear": {"display": "the owlbear", "kind": "beast", "can_parley": False},
     "cult": {"display": "the Cult of Evil Chaos", "kind": "cult", "can_parley": False},
     "keep": {"display": "the Keep garrison", "kind": "lawful", "can_parley": True},
+    # M8 wilderness factions (minor, no Caves leadership/repop politics)
+    "beast": {"display": "wild beasts", "kind": "beast", "can_parley": False},
+    "bandit": {"display": "bandits", "kind": "mercenary", "can_parley": True},
+    "lizard": {"display": "the lizard folk", "kind": "tribe", "can_parley": True},
 }

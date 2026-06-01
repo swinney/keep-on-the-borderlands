@@ -56,6 +56,16 @@ SERVERNAME = "Keep on the Borderlands"
 
 
 ######################################################################
+# M8 — Wilderness / xyzgrid
+######################################################################
+EXTRA_LAUNCHER_COMMANDS = {
+    "xyzgrid": "evennia.contrib.grid.xyzgrid.launchcmd.xyzcommand"
+}
+PROTOTYPE_MODULES += [  # type: ignore[name-defined]
+    "evennia.contrib.grid.xyzgrid.prototypes",
+]
+
+######################################################################
 # Settings given in secret_settings.py override those in this file.
 ######################################################################
 try:
