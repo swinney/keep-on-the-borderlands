@@ -14,6 +14,8 @@
 #                             A turn exceeding it is killed and counts as a stall.
 #   RALPH_MAX_STALLS=<n>      consecutive no-progress turns before the loop halts
 #                             for human review (default 2).
+#   RALPH_LIMIT_POLL=<sec>    fallback wait when a usage-limit reset time can't be
+#                             parsed from the turn log (default 900 = 15 min).
 #
 # Stop conditions (loop mode):
 #   * /workspace/STATUS.md becomes NON-EMPTY (Claude wrote a stop reason).
@@ -24,6 +26,14 @@
 # Resilience: each turn is wrapped in `timeout`, so a single hung turn is killed
 # and automatically RETRIED on the next iteration; the loop only gives up after
 # RALPH_MAX_STALLS turns in a row produce no commit.
+#
+# Usage limits: `claude -p` has no native wait-and-retry on a token-window limit
+# — it exits non-zero with a "resets <time>" message. Such a turn makes no
+# commit, so it would otherwise be miscounted as a stall and trip the halt above
+# (this bit us at M8). Instead the loop detects it, waits for the window to
+# refresh (scripts/until_reset.py parses the reset time; RALPH_LIMIT_POLL on a
+# parse miss), and replays the SAME task — an exhausted window pauses the loop,
+# it does not halt it.
 #
 # Status outputs (all under /workspace/.ralph/, gitignored — read via `make status`):
 #   log/turn-<n>.txt   per-turn output, line-buffered so `tail -f` is live
@@ -40,6 +50,7 @@ once=0
 
 turn_timeout=${RALPH_TURN_TIMEOUT:-1200}
 max_stalls=${RALPH_MAX_STALLS:-2}
+limit_poll=${RALPH_LIMIT_POLL:-900}
 
 if [ ! -f PROMPT.md ]; then
   echo "ralph: PROMPT.md missing in $(pwd) — refusing to start" >&2
@@ -176,6 +187,23 @@ while true; do
   before=$(head_rev)
   run_turn
   after=$(head_rev)
+
+  # Usage-limit pause (before the stall check): a rate-limited turn exits
+  # non-zero and prints "hit your … limit · resets <time>" but makes no commit,
+  # so it must NOT count toward max-stalls. Wait for the window to refresh, then
+  # replay the SAME task. A genuine timeout (124) with no limit message falls
+  # through to the stall logic, as before.
+  last_log=".ralph/log/turn-${turn}.txt"
+  if [ "$turn_ec" -ne 0 ] &&
+    grep -qiE "hit your (session|weekly|opus|usage) limit" "$last_log" 2>/dev/null; then
+    reset=$(grep -oiE "resets [^.]*" "$last_log" | head -1)
+    wait_s=$(python3 scripts/until_reset.py "$reset" 2>/dev/null || echo "$limit_poll")
+    echo "ralph: usage limit hit at turn $turn (${reset:-reset time unknown}) — pausing ${wait_s}s, then retrying (not a stall)"
+    sleep "$wait_s"
+    turn=$((turn - 1)) # replay this turn number — the task was not completed
+    echo "$turn" >"$turn_file"
+    continue
+  fi
 
   # Stop only on a STATUS.md with real (non-whitespace) content. A blank or
   # whitespace-only file is treated as "still running" — a turn that writes
