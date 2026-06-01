@@ -46,10 +46,12 @@ class RepopManager(DefaultScript):
         #   respawn_at:   spawn_id -> epoch second the point is due to respawn
         #   halted_until: faction -> epoch second a leadership halt lifts (§3)
         #   scouts:       scout_id -> Scout field dict (rival scouting, §4)
+        #   shrine_reset_at: epoch second the Shrine next resets (§5)
         self.db.points = {}
         self.db.respawn_at = {}
         self.db.halted_until = {}
         self.db.scouts = {}
+        self.db.shrine_reset_at = None
 
     # ── State (de)serialization ──────────────────────────────────────────────
 
@@ -60,6 +62,7 @@ class RepopManager(DefaultScript):
         state.load_timers(dict(self.db.respawn_at or {}))
         state.load_halts(dict(self.db.halted_until or {}))
         state.load_scouts({sid: Scout(**fields) for sid, fields in (self.db.scouts or {}).items()})
+        state.load_shrine(self.db.shrine_reset_at)
         return state
 
     def _save(self, state: RepopState) -> None:
@@ -67,6 +70,7 @@ class RepopManager(DefaultScript):
         self.db.respawn_at = state.pending_timers()
         self.db.halted_until = state.halt_windows()
         self.db.scouts = {sid: asdict(s) for sid, s in state.scout_records().items()}
+        self.db.shrine_reset_at = state.shrine_window()
 
     # ── Registration API ──────────────────────────────────────────────────────
 
@@ -139,10 +143,36 @@ class RepopManager(DefaultScript):
             for session in evennia.SESSION_HANDLER.get_sessions():
                 session.msg(message)
 
+    def _tick_shrine(self, state: RepopState, now: float) -> None:
+        """Advance the Shrine's 24h reset cycle (spec §5).
+
+        Arms the cycle on first run; thereafter, each time a 24h boundary has
+        elapsed it resets the Shrine — wholesale restock plus a server-wide
+        broadcast — and re-arms the next cycle. Re-arming via mark_shrine_reset
+        makes the reset idempotent within a window.
+        """
+        if state.shrine_reset_at() is None:
+            state.schedule_shrine_reset(now)
+            return
+        if state.shrine_reset_due(now):
+            self._reset_shrine()
+            state.mark_shrine_reset(now)
+
+    def _reset_shrine(self) -> None:
+        """Reset the Shrine wholesale and announce it server-wide (spec §5).
+
+        Restocking the Shrine's mobs and boss and clearing any in-progress
+        Shrine state operates on the Shrine zone, which lands in M11; until then
+        this delivers the canonical server-wide broadcast, mirroring how
+        ``_instantiate`` stands in for real spawning.
+        """
+        self._broadcast(cfg.SHRINE_RESET_BROADCAST)
+
     def at_repeat(self) -> None:
-        """Reconcile due spawns and scout retreats once per MANAGER_TICK."""
+        """Reconcile the Shrine cycle, due spawns, and scout retreats per tick."""
         state = self._state()
         now = time.time()
+        self._tick_shrine(state, now)
         # Surviving scouts retreat the moment their tribe's halt lifts (§4),
         # before the tribe's own members regroup into the same rooms.
         for scout_id in state.due_scout_retreats(now):

@@ -1,9 +1,9 @@
 """Repop tuning constants (R3 / docs/specs/repop.md §1).
 
-Single tuning file for the wall-clock timing of tribe-scoped respawn. Only the
-constants needed for standard respawn live here today; the leadership-halt,
-rival-scouting, and Shrine-reset constants and the designated-rival table are
-added by the later M6 tasks that implement those behaviors.
+Single tuning file for the wall-clock timing of tribe-scoped respawn and the
+Shrine reset cycle. The constants for standard respawn, the leadership halt,
+rival scouting, and the Shrine reset live here; the seasonal-reset constants are
+added by the later M6 task that implements it.
 
 All durations are real-world seconds (wall-clock), not game time
 (docs/architecture.md §5.2).
@@ -40,3 +40,10 @@ DESIGNATED_RIVAL: dict[str, str | None] = {
     "minotaur": None,
     "owlbear": None,
 }
+
+# Full Shrine of Evil Chaos reset cycle. 24 real hours (spec §1 SHRINE_RESET /
+# §5). The Shrine is not tribe-scoped; it resets wholesale on this cadence.
+SHRINE_RESET: int = 24 * 60 * 60
+
+# Server-wide broadcast fired when the Shrine resets (spec §5). Content knob.
+SHRINE_RESET_BROADCAST: str = "The cult regroups in the deep places."

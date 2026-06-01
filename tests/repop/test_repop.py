@@ -291,12 +291,40 @@ def test_scouts_retreat_on_regroup() -> None:
     assert state.active_scouts() == ()
 
 
-# ── M6 Task 4 / 5: Shrine reset + season reset (skipped until implemented) ───
+# ── M6 Task 4: Shrine reset ──────────────────────────────────────────────────
 
 
-@pytest.mark.skip(reason="M6 Task 4 — Shrine reset")
 def test_shrine_resets_every_24h_with_broadcast() -> None:
-    """WHEN SHRINE_RESET elapses THEN Shrine mobs respawn and a server-wide broadcast fires."""
+    """WHEN SHRINE_RESET elapses THEN the Shrine comes due to reset, on a 24h cadence.
+
+    The pure core exposes the reset *timing*; the repop_manager turns each due
+    reset into the wholesale restock plus server-wide broadcast (spec §5), just
+    as the leadership-halt broadcast is delegated out of the pure core.
+    """
+    state = RepopState()
+    # Unarmed until scheduled at world build / season start.
+    assert state.shrine_reset_at() is None
+    assert state.shrine_reset_due(now=0.0) is False
+
+    state.schedule_shrine_reset(now=0.0)
+    assert state.shrine_reset_at() == cfg.SHRINE_RESET == 24 * 60 * 60
+
+    # Not due until the full 24h cycle elapses; due exactly once it has passed.
+    assert state.shrine_reset_due(now=cfg.SHRINE_RESET - 1) is False
+    assert state.shrine_reset_due(now=cfg.SHRINE_RESET) is True
+
+    # Performing the reset re-arms the next cycle and does not re-fire within
+    # the same window (idempotent, spec §5).
+    state.mark_shrine_reset(now=cfg.SHRINE_RESET)
+    assert state.shrine_reset_due(now=cfg.SHRINE_RESET) is False
+    assert state.shrine_reset_at() == 2 * cfg.SHRINE_RESET
+
+    # And it resets again on the next 24h boundary — a repeating cadence.
+    assert state.shrine_reset_due(now=2 * cfg.SHRINE_RESET - 1) is False
+    assert state.shrine_reset_due(now=2 * cfg.SHRINE_RESET) is True
+
+
+# ── M6 Task 5: season_manager reset (skipped until implemented) ──────────────
 
 
 @pytest.mark.skip(reason="M6 Task 5 — season_manager reset")

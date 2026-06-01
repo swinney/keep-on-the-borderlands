@@ -10,8 +10,8 @@ clock here, so every transition is deterministic under test; the manager
 supplies the real clock (docs/specs/repop.md §1, §2).
 
 This module implements M6 Task 1 (registration + standard respawn), Task 2
-(leadership halt, §3), and Task 3 (rival scouting, §4). Shrine reset (§5) is
-layered on by a later task; its hooks are intentionally absent until then.
+(leadership halt, §3), Task 3 (rival scouting, §4), and Task 4 (the Shrine
+reset cycle, §5). Seasonal reset (§6) is layered on by a later task.
 """
 
 from __future__ import annotations
@@ -100,6 +100,10 @@ class RepopState:
         self._halted_until: dict[str, float] = {}
         # scout_id -> Scout currently occupying a halted lair (spec §4).
         self._scouts: dict[str, Scout] = {}
+        # Epoch second the Shrine is next due to reset (spec §5), or None until
+        # the cycle is armed at world build / season start. The Shrine is not
+        # tribe-scoped; it resets wholesale on the SHRINE_RESET cadence.
+        self._shrine_reset_at: float | None = None
 
     # ── Registration ────────────────────────────────────────────────────────
 
@@ -263,6 +267,34 @@ class RepopState:
         """Epoch second the tribe's halt lifts, or None if it was never halted."""
         return self._halted_until.get(faction)
 
+    # ── Shrine reset (spec §5) ────────────────────────────────────────────────
+
+    def schedule_shrine_reset(self, now: float) -> None:
+        """Arm the Shrine's 24h reset cycle, starting from ``now`` (spec §5)."""
+        self._shrine_reset_at = now + _cfg.SHRINE_RESET
+
+    def shrine_reset_at(self) -> float | None:
+        """Epoch second the Shrine is next due to reset, or None if unarmed."""
+        return self._shrine_reset_at
+
+    def shrine_reset_due(self, now: float) -> bool:
+        """True once the Shrine's 24h cycle has elapsed and a reset is due (§5)."""
+        return self._shrine_reset_at is not None and now >= self._shrine_reset_at
+
+    def mark_shrine_reset(self, now: float) -> None:
+        """Re-arm the next cycle once the manager has performed the reset (§5).
+
+        Advancing by whole SHRINE_RESET periods (not ``now + SHRINE_RESET``)
+        keeps a fixed cadence and makes the reset idempotent within a window:
+        re-checking before the next boundary never re-fires. Whole cycles missed
+        while the server was down are skipped so the timer never lags forever.
+        """
+        base = self._shrine_reset_at if self._shrine_reset_at is not None else now
+        nxt = base + _cfg.SHRINE_RESET
+        while nxt <= now:
+            nxt += _cfg.SHRINE_RESET
+        self._shrine_reset_at = nxt
+
     # ── Persistence helpers (used by the manager) ─────────────────────────────
 
     def pending_timers(self) -> dict[str, float]:
@@ -288,3 +320,11 @@ class RepopState:
     def load_scouts(self, scouts: dict[str, Scout]) -> None:
         """Restore persisted scouts after a reload."""
         self._scouts = dict(scouts)
+
+    def shrine_window(self) -> float | None:
+        """The Shrine's next-reset epoch second, for the manager to persist."""
+        return self._shrine_reset_at
+
+    def load_shrine(self, shrine_reset_at: float | None) -> None:
+        """Restore the persisted Shrine reset window after a reload."""
+        self._shrine_reset_at = shrine_reset_at
