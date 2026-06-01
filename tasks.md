@@ -108,10 +108,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Tavern henchman roster integration; chapel staff NPCs (priest pool placeholder)
 - [x] Rest / spell memorization in the Keep; new character spawns→equips→hires→rests (M7 exit)
 
-- [ ] ⛔ MILESTONE GATE (M7 → M8 review). When every M7 box above is checked,
-  do NOT begin M8. As your entire action this turn, write the single line
-  `M7 complete — paused for human review before M8.`
-  to `STATUS.md` and stop. Make no code changes and do not check this box.
+- [x] ⛔ MILESTONE GATE (M7 → M8 review) — **passed**: M7 reviewed and merged via PR #6.
 
 ## M8 — Wilderness zone
 
@@ -119,6 +116,11 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [ ] Wandering-encounter tables
 - [ ] Set-pieces: hermit, spider lair, mountain lions, raiders
 - [ ] Travel Keep → ravine mouth works end-to-end (M8 exit)
+
+- [ ] ⛔ MILESTONE GATE (M8 → M9 review). When every M8 box above is checked,
+  do NOT begin M9. As your entire action this turn, write the single line
+  `M8 complete — paused for human review before M9.`
+  to `STATUS.md` and stop. Make no code changes and do not check this box.
 
 ## M9 — Kobold cave vertical slice ⭐ (critical integration milestone)
 

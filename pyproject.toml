@@ -12,6 +12,9 @@ authors = [{ name = "Austin Swinney", email = "swinney@gmail.com" }]
 # deliberate, reviewable change rather than silent drift across loop turns.
 dependencies = [
   "evennia==6.0.0",
+  # Required by Evennia's xyzgrid contrib (architecture §2): coordinate-hex
+  # rooms + web-client map rendering for the wilderness/cave/shrine zones.
+  "scipy>=1.11,<2",
 ]
 
 [project.optional-dependencies]

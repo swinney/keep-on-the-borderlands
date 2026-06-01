@@ -41,6 +41,7 @@ RUN npm install -g @anthropic-ai/claude-code
 # so the container's gates match the host's.
 RUN pip install --no-cache-dir \
         evennia==6.0.0 \
+        "scipy>=1.11,<2" \
         pytest \
         pytest-django \
         pytest-cov \
