@@ -26,9 +26,10 @@
   timeouts on one hard task triggered the self-halt; a human escalated that turn
   to the stronger model and finished it in minutes. The model-by-risk strategy
   is not theory — it's the documented recovery path.
-- **As of this writing:** 82 commits, 24 unattended loop turns, 255 passing
-  tests, through M5 (henchmen). Zero red commits reached `main`. M4 *and* M5
-  both ran end-to-end unattended on Sonnet and self-halted at their gates.
+- **As of this writing:** 93 commits, 31 unattended loop turns, 284 passing
+  tests, through M6 — the **entire systems layer is complete** (factions,
+  henchmen, repop, seasonal reset). Zero red commits reached `main`. M4/M5 ran
+  unattended on Sonnet; M6 ran unattended on Opus (stateful) with zero stalls.
 
 ---
 
@@ -155,9 +156,26 @@ combat AI, OSE loyalty/morale (flee/refuse thresholds), and XP/treasure share +
 permadeath/re-hire. Notably, the task we expected to be risky — **follow/order
 commands + combat AI**, the stateful/engine-coupled kind that stalled M3 — ran
 clean on Sonnet under closer supervision. M5 completed all four tasks unattended
-and self-halted at its gate; `tests/henchmen` green (255 tests total). Two clean
-unattended milestones in a row (M4, M5) is the loop hitting its stride on
-well-specified work. Batched with M6 into a single PR (see §10).
+and self-halted at its gate; `tests/henchmen` green. Two clean unattended
+milestones in a row (M4, M5) is the loop hitting its stride on well-specified
+work. Batched with M6 into a single PR (see §10).
+
+### M6 — Repop + seasonal reset (complete; Opus-from-start, zero stalls) + the batching dividend
+The first milestone launched on **Opus from turn 1**, deliberately, because it
+is *stateful* (repop Scripts, timers, leadership-halt, season_manager reset
+orchestration) — the M3-stall category. It ran all six tasks unattended with
+**zero timeouts**, validating "Opus-from-start on stateful work." M5+M6 were
+**batched into one PR (#5)** to cut gate latency — and batching paid an
+unexpected dividend: Copilot's review caught a **cross-milestone integration
+bug that per-milestone review would have missed**. M3 had built a placeholder
+leaderboard; M6 built the real season-aware one; nothing wired *death* to the
+*season* leaderboard, so `fell` entries were unreachable via `per_season`
+(death.md §4 behavior 10 unmet end-to-end). Each milestone's tests passed in
+isolation; only seeing M3's and M6's code in *one* review surfaced the gap. Fix:
+unify onto the single season-owned store (death → `season_manager.record_fell`),
+delete the legacy placeholder. **Lesson: batching isn't only a latency win — it
+widens the review's blast radius enough to catch integration drift that isolated
+green suites never will.**
 
 ---
 
@@ -339,16 +357,16 @@ the lean context file, the model strategy, and the milestone-gate sentinel.
 
 | Metric | Value |
 |---|---|
-| Total commits | 82 |
-| Unattended loop turns | 24 |
-| Models used | Sonnet 4.6 (bulk; ran all of M4 and M5 unattended) · Opus 4.8 (config-critical turns, M2-turn-1 supervise, M3-task-3 stall recovery) |
-| Tests | 255 passing / 62 Phase-0 stubs skipped |
-| Pure rules / logic modules | 8 (`dice`, `abilities`, `progression`, `combat`, `saves`, `spells`, `factions`, `henchmen`) |
+| Total commits | 93 |
+| Unattended loop turns | 31 |
+| Models used | Sonnet 4.6 (M1/M2/M4/M5) · Opus 4.8 (config-critical turns, M2-turn-1 supervise, M3 stall recovery, **all of M6** stateful) |
+| Tests | 284 passing / 40 Phase-0 stubs skipped |
+| Pure rules / logic modules | 8 (`dice`, `abilities`, `progression`, `combat`, `saves`, `spells`, `factions`, `henchmen`) + system packages (`repop`, `season`) |
 | Red commits reaching `main` | 0 |
-| Milestones complete | Phase 0, M0, M1, M2, M3, M4, M5 |
+| Milestones complete | Phase 0, M0–M6 (**entire systems layer**) |
 | Loop tasks needing human recovery | 1 (M3 task 3 — debugging spiral, §5.10) |
-| Milestones run fully unattended | 2 (M4, M5 — clean Sonnet runs, self-halted at gates) |
-| Copilot-reviewed PRs | #1 (~13 findings) · #2 (clean) · #3 (9, incl. 1 real bug) · #4 (5, incl. 2 real bugs) |
+| Milestones run fully unattended | 3 (M4, M5 on Sonnet; M6 on Opus — all self-halted at gates) |
+| Copilot-reviewed PRs | #1 (~13) · #2 (clean) · #3 (9, 1 real bug) · #4 (5, 2 real bugs) · #5 (1, a cross-milestone integration bug) |
 
 ---
 
