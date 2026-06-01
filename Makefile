@@ -34,7 +34,7 @@ help:
 	@echo "  fanout         launch M10 tribe fan-out (clone/branch/pool, default concurrency 2)"
 	@echo "  fanout-dry     dry-run: print the fanout plan (clones, branches, tasks, launch cmds)"
 	@echo "  fanout-status  aggregate status digest across all active tribe clones"
-	@echo "  fanout-land    merge clean tribe PRs (CI green + no CHANGES_REQUESTED)"
+	@echo "  fanout-land    merge clean tribe PRs (CI green + no Copilot inline comments)"
 
 build:
 	podman build \

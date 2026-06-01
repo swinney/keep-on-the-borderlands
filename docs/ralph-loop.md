@@ -219,7 +219,7 @@ Full design rationale: `docs/specs/fanout-harness.md`.
 | `make fanout` | Launch M10 tribe fan-out (clones, branches, pool of 2, Sonnet) |
 | `make fanout-dry` | Print the full plan — clones, branches, task files, launch commands — without running anything |
 | `make fanout-status` | Aggregate turn / state / last-commit digest across all active tribe clones |
-| `make fanout-land` | Merge tribe PRs that are CI-green + have no CHANGES_REQUESTED reviews |
+| `make fanout-land` | Merge tribe PRs that are CI-green + have no Copilot inline comments |
 
 **Model**: Sonnet on each tribe loop (content/replication); Opus on the serial
 integration task (minotaur maze + cross-faction wiring) that follows all merges.

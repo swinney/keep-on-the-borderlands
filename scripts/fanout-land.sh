@@ -5,7 +5,9 @@
 # Only merges a PR when ALL of:
 #   1. CI checks all pass (no failures, no pending).
 #   2. No CHANGES_REQUESTED reviews remain unresolved.
-#   3. No unresolved Copilot review change-comments.
+#   3. No inline comments from the Copilot reviewer bot (Copilot never uses
+#      CHANGES_REQUESTED — it posts findings as inline comments on a COMMENTED
+#      review, so this is the gate that actually catches Copilot findings).
 #
 # Usage:
 #   fanout-land.sh             merge every clean tribe PR
@@ -121,23 +123,28 @@ PY
     continue
   fi
 
-  # 3. Check for unresolved PR review comments (inline change requests).
-  # We look at all review comments; if any are from Copilot and the PR has a
-  # CHANGES_REQUESTED review from it (already caught above), we skip. This is
-  # belt-and-suspenders — the review state check above is the primary gate.
-  # Additional heuristic: if there are any unresolved review threads, skip.
-  review_comments_json=$(gh api "repos/{owner}/{repo}/pulls/${pr_n}/comments" 2>/dev/null || echo '[]')
-  comment_count=$(python3 - "$review_comments_json" <<'PY'
-import json, sys
-data = json.loads(sys.argv[1])
-print(len(data))
-PY
-)
+  # 3. Check for inline review comments from the Copilot reviewer bot.
+  # CRITICAL: Copilot ALWAYS posts findings as a COMMENTED review with inline
+  # comments — it never uses CHANGES_REQUESTED. So the review-state gate above
+  # does NOT catch Copilot findings; we must count its inline comments directly.
+  # Conservative on API error: a fetch failure skips (does not merge).
+  copilot_comment_count=$(gh api "repos/{owner}/{repo}/pulls/${pr_n}/comments" \
+    --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | length' \
+    2>/dev/null || echo "error")
+  if [ "$copilot_comment_count" = "error" ]; then
+    echo "  SKIP: could not fetch Copilot comments (API error — conservative skip)"
+    skipped_count=$((skipped_count + 1))
+    echo
+    continue
+  fi
+  if [ "$copilot_comment_count" -gt 0 ]; then
+    echo "  SKIP: Copilot left ${copilot_comment_count} inline comment(s) — needs human triage"
+    skipped_count=$((skipped_count + 1))
+    echo
+    continue
+  fi
 
-  # Presence of review comments alone is not blocking — Copilot may leave
-  # informational comments without CHANGES_REQUESTED. The CHANGES_REQUESTED
-  # review state (checked above) is the authoritative signal. Log count only.
-  echo "  CI: ok  |  CHANGES_REQUESTED: none  |  review comments: ${comment_count}"
+  echo "  CI: ok  |  CHANGES_REQUESTED: none  |  Copilot inline comments: 0"
 
   if [ "$dry_run" -eq 1 ]; then
     echo "  DRY: would merge PR #${pr_n} (${head_ref}) with --merge (no branch delete)"
