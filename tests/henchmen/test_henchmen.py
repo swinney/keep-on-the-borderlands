@@ -9,9 +9,13 @@ Un-skipped progressively across M5 tasks:
 
 from __future__ import annotations
 
+import contextlib
+
 import pytest
+from evennia.objects.models import ObjectDB
 from evennia.utils import create
 
+from world.henchmen import reset_henchmen
 from world.rules.combat import morale_holds
 from world.rules.henchmen import (
     HireOutcome,
@@ -148,11 +152,39 @@ def test_loyalty_adjusts_per_event_table() -> None:
     assert adjust_loyalty(1, LoyaltyEvent.SHORTED_SHARE) == 1
 
 
-@pytest.mark.skip(reason="Implemented in M5 Task 4")
+@pytest.mark.django_db
 def test_dead_henchman_permanently_removed() -> None:
     """WHEN a henchman reaches 0 HP THEN it is removed permanently and the slot frees."""
+    room = create.create_object("typeclasses.rooms.Room", key="hm-perm-room")
+    employer = create.create_object(
+        "typeclasses.characters.PlayerCharacter", key="hm-perm-employer", location=room
+    )
+    henchman = create.create_object(
+        "typeclasses.npcs.Henchman", key="hm-perm-follower", location=room
+    )
+    henchman.db.employer = employer
+    henchman_id = henchman.id
+    try:
+        henchman.apply_damage(9999)  # lethal → at_death() → self.delete()
+        assert not ObjectDB.objects.filter(id=henchman_id).exists()
+    finally:
+        with contextlib.suppress(Exception):
+            employer.delete()
+        with contextlib.suppress(Exception):
+            room.delete()
 
 
-@pytest.mark.skip(reason="Implemented in M5 Task 4")
+@pytest.mark.django_db
 def test_roster_refreshes_each_season() -> None:
     """WHEN a season resets THEN the roster refreshes and no prior henchmen persist."""
+    room = create.create_object("typeclasses.rooms.Room", key="hm-season-room")
+    henchman = create.create_object(
+        "typeclasses.npcs.Henchman", key="hm-season-follower", location=room
+    )
+    henchman_id = henchman.id
+    try:
+        reset_henchmen()
+        assert not ObjectDB.objects.filter(id=henchman_id).exists()
+    finally:
+        with contextlib.suppress(Exception):
+            room.delete()
