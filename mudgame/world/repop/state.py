@@ -9,9 +9,9 @@ Wall-clock time is passed in explicitly (epoch seconds) rather than read from a
 clock here, so every transition is deterministic under test; the manager
 supplies the real clock (docs/specs/repop.md §1, §2).
 
-This module implements M6 Task 1 (registration + standard respawn) and Task 2
-(leadership halt, §3). Rival scouting (§4) and Shrine reset (§5) are layered on
-by later tasks; their hooks are intentionally absent until then.
+This module implements M6 Task 1 (registration + standard respawn), Task 2
+(leadership halt, §3), and Task 3 (rival scouting, §4). Shrine reset (§5) is
+layered on by a later task; its hooks are intentionally absent until then.
 """
 
 from __future__ import annotations
@@ -31,10 +31,32 @@ class HaltEvent:
 
     faction       tribe whose chief and shaman are both dead.
     halted_until  epoch second the repop freeze lifts (now + LEADERSHIP_HALT).
+    rival         designated rival that scouts the empty lair (§4), or None for
+                  a solitary/rival-less tribe. The scouts themselves are already
+                  recorded in RepopState (see scouts_for); this names the side.
     """
 
     faction: str
     halted_until: float
+    rival: str | None = None
+
+
+@dataclass(frozen=True)
+class Scout:
+    """A rival mob occupying a halted tribe's lair (spec §4).
+
+    scout_id   unique key for this scout within the world.
+    faction    the designated rival's faction id — scouts count as the rival
+               for all R2 purposes, never as the broken tribe.
+    room       a lair room of the broken tribe where the scout appears.
+    scouting   the broken tribe whose halt window this scout occupies; when that
+               halt expires the scout retreats (despawns).
+    """
+
+    scout_id: str
+    faction: str
+    room: str
+    scouting: str
 
 
 @dataclass(frozen=True)
@@ -76,6 +98,8 @@ class RepopState:
         # faction -> epoch second a leadership halt lifts (spec §3). While the
         # value is in the future, nothing in that tribe repops.
         self._halted_until: dict[str, float] = {}
+        # scout_id -> Scout currently occupying a halted lair (spec §4).
+        self._scouts: dict[str, Scout] = {}
 
     # ── Registration ────────────────────────────────────────────────────────
 
@@ -167,7 +191,68 @@ class RepopState:
         for candidate in self._points.values():
             if candidate.faction == faction:
                 self._respawn_at[candidate.spawn_id] = halted_until
-        return HaltEvent(faction=faction, halted_until=halted_until)
+        rival = self._spawn_scouts(faction)
+        return HaltEvent(faction=faction, halted_until=halted_until, rival=rival)
+
+    # ── Rival scouting (spec §4) ──────────────────────────────────────────────
+
+    def _spawn_scouts(self, faction: str) -> str | None:
+        """Move a designated rival's scouting party into the broken tribe's lair.
+
+        Spawns SCOUT_PARTY_SIZE scouts of the rival faction, distributed across
+        the broken tribe's lair rooms. Returns the rival faction id, or None when
+        the tribe has no designated rival (solitary) or no known lair rooms.
+        """
+        rival = _cfg.DESIGNATED_RIVAL.get(faction)
+        if rival is None:
+            return None
+        rooms = sorted({p.room for p in self._points.values() if p.faction == faction})
+        if not rooms:
+            return None
+        for i in range(_cfg.SCOUT_PARTY_SIZE):
+            scout_id = f"{rival}_scout_{faction}_{i}"
+            self._scouts[scout_id] = Scout(
+                scout_id=scout_id,
+                faction=rival,
+                room=rooms[i % len(rooms)],
+                scouting=faction,
+            )
+        return rival
+
+    def active_scouts(self) -> tuple[Scout, ...]:
+        """All scouts currently in the world, sorted by scout_id."""
+        return tuple(self._scouts[sid] for sid in sorted(self._scouts))
+
+    def scouts_for(self, faction: str) -> tuple[Scout, ...]:
+        """Scouts currently occupying the named broken tribe's lair."""
+        return tuple(s for s in self.active_scouts() if s.scouting == faction)
+
+    def get_scout(self, scout_id: str) -> Scout:
+        """The scout for scout_id (raises KeyError if unknown)."""
+        return self._scouts[scout_id]
+
+    def notify_scout_death(self, scout_id: str) -> None:
+        """Remove a scout a player has killed (it does not respawn; §4)."""
+        self._scouts.pop(scout_id, None)
+
+    def due_scout_retreats(self, now: float) -> tuple[str, ...]:
+        """Scout ids whose broken tribe is no longer halted at `now`.
+
+        On halt expiry surviving scouts retreat as the tribe regroups (§4); the
+        manager despawns each and calls mark_scout_retreated. Sorted for a
+        deterministic reconciliation order.
+        """
+        return tuple(
+            sorted(
+                sid
+                for sid, scout in self._scouts.items()
+                if not self.is_halted(scout.scouting, now)
+            )
+        )
+
+    def mark_scout_retreated(self, scout_id: str) -> None:
+        """Clear a scout once the manager has despawned it on regroup."""
+        self._scouts.pop(scout_id, None)
 
     def is_halted(self, faction: str, now: float) -> bool:
         """True while the tribe's leadership-halt window is still in the future."""
@@ -195,3 +280,11 @@ class RepopState:
     def load_halts(self, halted_until: dict[str, float]) -> None:
         """Restore persisted per-tribe halt windows after a reload."""
         self._halted_until = dict(halted_until)
+
+    def scout_records(self) -> dict[str, Scout]:
+        """A copy of the active scouts, for the manager to persist."""
+        return dict(self._scouts)
+
+    def load_scouts(self, scouts: dict[str, Scout]) -> None:
+        """Restore persisted scouts after a reload."""
+        self._scouts = dict(scouts)

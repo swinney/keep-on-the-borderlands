@@ -3,7 +3,7 @@
 Un-skipped progressively across M6 tasks:
   Task 1 (this commit): spawn-point registration + standard respawn — behavior 1
   Task 2: leadership halt — behaviors 2, 3, 4, 5
-  Task 3: rival scouting — behaviors 6, 7, 8
+  Task 3 (this commit): rival scouting — behaviors 6, 7, 8
   Task 4: Shrine reset — behavior 9
   Task 5: season_manager reset — behavior 10
 
@@ -219,22 +219,76 @@ def test_halt_raises_rival_tension() -> None:
     assert after == before + fac_cfg.RELATION_EVENTS["leadership_broken"]
 
 
-# ── M6 Task 3: rival scouting (skipped until implemented) ────────────────────
+# ── M6 Task 3: rival scouting ────────────────────────────────────────────────
 
 
-@pytest.mark.skip(reason="M6 Task 3 — rival scouting")
 def test_rival_scouts_spawn_in_lair() -> None:
     """WHEN a tribe is halted THEN SCOUT_PARTY_SIZE rival mobs spawn in its lair."""
+    state = _halted_kobold_tribe(now=0.0)
+
+    scouts = state.scouts_for("kobold")
+    assert len(scouts) == cfg.SCOUT_PARTY_SIZE == 3
+    # All scouts belong to the kobolds' designated rival (orc_vol, spec §4).
+    assert cfg.DESIGNATED_RIVAL["kobold"] == "orc_vol"
+    assert {s.faction for s in scouts} == {"orc_vol"}
+    # They occupy the broken tribe's lair rooms, not anywhere else.
+    lair_rooms = {p.room for p in state.spawn_points() if p.faction == "kobold"}
+    assert {s.room for s in scouts} <= lair_rooms
 
 
-@pytest.mark.skip(reason="M6 Task 3 — rival scouting")
+def test_solitary_tribe_gets_no_scouts() -> None:
+    """WHEN a rival-less (solitary) tribe is halted THEN no scouts move in."""
+    state = RepopState()
+    state.register(_leader("ogre_chief", "chief", faction="ogre"))
+    state.register(_leader("ogre_shaman", "shaman", faction="ogre"))
+    state.notify_death("ogre_chief", now=0.0)
+    event = state.notify_death("ogre_shaman", now=1.0)
+
+    assert event is not None
+    assert cfg.DESIGNATED_RIVAL["ogre"] is None
+    assert event.rival is None
+    assert state.scouts_for("ogre") == ()
+
+
 def test_scouts_count_as_rival_faction() -> None:
     """WHEN a player kills a scout THEN standing changes with the rival, not the broken tribe."""
+    state = _halted_kobold_tribe(now=0.0)
+    scout = state.scouts_for("kobold")[0]
+
+    # The scout is the rival faction for all R2 purposes, never the broken tribe.
+    assert scout.faction == cfg.DESIGNATED_RIVAL["kobold"] == "orc_vol"
+    assert scout.faction != "kobold"
+
+    # Killing the scout shifts the player's standing with the rival faction only.
+    factions = FactionState()
+    player = "player#1"
+    rival_before = factions.get_standing(scout.faction, player)
+    factions.apply_kill_member(scout.faction, player)
+    assert factions.get_standing(scout.faction, player) == (
+        rival_before + fac_cfg.STANDING_EVENTS["kill_member"]
+    )
+    assert factions.get_standing("kobold", player) == 0  # broken tribe untouched
+
+    # And the scout leaves the field once slain (it does not respawn).
+    state.notify_scout_death(scout.scout_id)
+    assert scout.scout_id not in {s.scout_id for s in state.active_scouts()}
 
 
-@pytest.mark.skip(reason="M6 Task 3 — rival scouting")
 def test_scouts_retreat_on_regroup() -> None:
     """WHEN the halt expires THEN surviving scouts despawn."""
+    state = _halted_kobold_tribe(now=0.0)
+    expiry = 1.0 + cfg.LEADERSHIP_HALT
+
+    # Mid-window the scouts hold the lair; none are due to retreat yet.
+    assert state.due_scout_retreats(now=cfg.STANDARD_RESPAWN) == ()
+    assert len(state.active_scouts()) == cfg.SCOUT_PARTY_SIZE
+
+    # At halt expiry every surviving scout comes due to retreat, sorted.
+    due = state.due_scout_retreats(now=expiry)
+    assert due == tuple(s.scout_id for s in state.scouts_for("kobold"))
+    for scout_id in due:
+        state.mark_scout_retreated(scout_id)
+    assert state.active_scouts() == ()
 
 
 # ── M6 Task 4 / 5: Shrine reset + season reset (skipped until implemented) ───
