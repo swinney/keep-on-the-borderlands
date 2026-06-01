@@ -315,6 +315,17 @@ def test_build_creates_18_rooms(built_wilderness: None) -> None:
 
 
 @pytest.mark.django_db
+def test_build_is_idempotent(built_wilderness: None) -> None:
+    """A second build() reuses the same rooms — no duplicates on map reload."""
+    from evennia.contrib.grid.xyzgrid.xyzroom import XYZRoom  # noqa: PLC0415
+
+    first = {r.id for r in XYZRoom.objects.filter_xyz(("*", "*", "wilderness"))}
+    wilderness.build()
+    second = {r.id for r in XYZRoom.objects.filter_xyz(("*", "*", "wilderness"))}
+    assert second == first, "build() created or replaced rooms on a second run"
+
+
+@pytest.mark.django_db
 def test_keep_road_is_safe(built_wilderness: None) -> None:
     room = _find_wilderness_room("keep_road")
     assert room is not None, "keep_road room not found"

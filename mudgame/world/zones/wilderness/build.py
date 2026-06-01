@@ -60,6 +60,11 @@ def _wire_interzone_exits() -> None:
         # (source_room_key, exit_key, target_zone:room_key, aliases)
         ("keep_road", "gate", "keep:main_gate", ["n", "north"]),
         ("ravine_mouth", "enter", "caves:ravine_mouth", ["e", "east"]),
+        # Cave of the Unknown is a sealed v1 stub (CLAUDE.md): the target room
+        # never exists in v1, so this exit is always skipped silently. It records
+        # the spec's inter-zone link (wilderness.md §exits) for if/when the
+        # `unknown` zone is ever built. No cardinal alias (InterruptMapNode).
+        ("sealed_cleft", "cleft", "unknown:entrance", []),
     ]
 
     for src_key, exit_key, target_tag, aliases in _exits:

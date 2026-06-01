@@ -87,7 +87,7 @@ MAPSTR = r"""
 2   #-#-#-#-#
     | | | | |
 1 #-#-#-#-#-#
-        | | |
+      | | |
 0     #-#-I
 
 + 0 1 2 3 4 5
@@ -250,8 +250,8 @@ an encounter.
 ### 9.2 Roll
 
 Roll `1d6`. On a **1**, an encounter occurs (≈17 % per move; tunable via
-`WILDERNESS_ENCOUNTER_CHANCE` in `world/factions/config.py` or a dedicated
-constant).
+`WILDERNESS_ENCOUNTER_CHANCE` in `world/zones/wilderness/typeclasses.py` — the
+1d6 threshold below which an encounter fires).
 
 ### 9.3 Encounter selection
 
