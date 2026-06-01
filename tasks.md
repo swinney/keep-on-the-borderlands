@@ -117,18 +117,20 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Set-pieces: hermit, spider lair, mountain lions, raiders
 - [x] Travel Keep → ravine mouth works end-to-end (M8 exit)
 
-- [ ] ⛔ MILESTONE GATE (M8 → M9 review). When every M8 box above is checked,
-  do NOT begin M9. As your entire action this turn, write the single line
-  `M8 complete — paused for human review before M9.`
-  to `STATUS.md` and stop. Make no code changes and do not check this box.
+- [x] ⛔ MILESTONE GATE (M8 → M9 review) — **passed**: M8 reviewed and merged via PR #7.
 
 ## M9 — Kobold cave vertical slice ⭐ (critical integration milestone)
 
-- [ ] `world/zones/caves/` kobold lair rooms + kobold mobs
-- [ ] Kobold chief + shaman leaders wired to the M6 leadership-halt + rival scouting
-- [ ] Faction standing shifts observable in kobold behavior (ties M4 ↔ M9)
-- [ ] Guildmaster tribe-clearing quest + treasure→XP-on-secure loop
-- [ ] Integration test: spawn → equip → hire → travel → clear tribe → return → turn in → bank for XP (M9 exit)
+- [x] `world/zones/caves/` kobold lair rooms + kobold mobs
+- [x] Kobold chief + shaman leaders wired to the M6 leadership-halt + rival scouting
+- [x] Faction standing shifts observable in kobold behavior (ties M4 ↔ M9)
+- [x] Guildmaster tribe-clearing quest + treasure→XP-on-secure loop
+- [x] Integration test: spawn → equip → hire → travel → clear tribe → return → turn in → bank for XP (M9 exit)
+
+- [ ] ⛔ MILESTONE GATE (M9 → M10 review). When every M9 box above is checked,
+  do NOT begin M10. As your entire action this turn, write the single line
+  `M9 complete — paused for human review before M10.`
+  to `STATUS.md` and stop. Make no code changes and do not check this box.
 
 ## M10 — Remaining caves
 
