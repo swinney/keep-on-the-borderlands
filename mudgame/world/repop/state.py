@@ -295,6 +295,21 @@ class RepopState:
             nxt += _cfg.SHRINE_RESET
         self._shrine_reset_at = nxt
 
+    # ── Season reset (docs/specs/seasonal-reset.md §3.3) ──────────────────────
+
+    def reset_season(self, now: float) -> None:
+        """Clear every live repop timer, halt, and scout; re-arm the Shrine cycle.
+
+        Season reset wipes the repop domain's wall-clock state so every
+        registered spawn point is alive again and no tribe is frozen, then arms a
+        fresh 24h Shrine cycle from ``now``. The static spawn-point registry (zone
+        data) is retained — the manager rebuilds the live mob instances from it.
+        """
+        self._respawn_at = {}
+        self._halted_until = {}
+        self._scouts = {}
+        self.schedule_shrine_reset(now)
+
     # ── Persistence helpers (used by the manager) ─────────────────────────────
 
     def pending_timers(self) -> dict[str, float]:

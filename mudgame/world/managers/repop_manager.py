@@ -168,6 +168,29 @@ class RepopManager(DefaultScript):
         """
         self._broadcast(cfg.SHRINE_RESET_BROADCAST)
 
+    # ── Season-reset hooks (R6 §3.3; called by the season_manager) ────────────
+
+    def reset_season(self, now: float | None = None) -> None:
+        """Clear all repop timers, halts, and scouts; re-arm the Shrine cycle.
+
+        The static spawn-point registry is retained; the season_manager's world
+        rebuild re-instantiates the live mobs from it.
+        """
+        state = self._state()
+        state.reset_season(now if now is not None else time.time())
+        self._save(state)
+
+    def reset_shrine(self, now: float | None = None) -> None:
+        """Restock the Shrine and re-arm its 24h cycle at season start (R6 §3.3).
+
+        Re-instantiating the Shrine's boss and rooms lands with the Shrine zone
+        (M11); until then this re-arms the timer, mirroring how ``_instantiate``
+        stands in for real spawning.
+        """
+        state = self._state()
+        state.schedule_shrine_reset(now if now is not None else time.time())
+        self._save(state)
+
     def at_repeat(self) -> None:
         """Reconcile the Shrine cycle, due spawns, and scout retreats per tick."""
         state = self._state()

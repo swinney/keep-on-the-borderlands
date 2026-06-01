@@ -15,8 +15,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pytest
-
 from world.factions import config as fac_cfg
 from world.factions.state import FactionState
 from world.repop import config as cfg
@@ -324,9 +322,33 @@ def test_shrine_resets_every_24h_with_broadcast() -> None:
     assert state.shrine_reset_due(now=2 * cfg.SHRINE_RESET) is True
 
 
-# ── M6 Task 5: season_manager reset (skipped until implemented) ──────────────
+# ── M6 Task 5: season_manager reset ──────────────────────────────────────────
 
 
-@pytest.mark.skip(reason="M6 Task 5 — season_manager reset")
 def test_season_reset_clears_repop_state() -> None:
     """WHEN a season resets THEN all timers, halts, and scouts clear and the world rebuilds."""
+    state = _halted_kobold_tribe(now=0.0)
+    state.register(_point("goblin_guard_1", faction="goblin"))
+    state.notify_death("goblin_guard_1", now=0.0)
+    state.schedule_shrine_reset(now=0.0)
+
+    # Precondition: the tribe is halted with scouts in its lair and timers pending.
+    assert state.is_halted("kobold", now=0.0)
+    assert state.active_scouts()
+    assert state.is_pending("goblin_guard_1")
+
+    state.reset_season(now=5_000.0)
+
+    # All live wall-clock state is wiped: no halts, no scouts, no pending timers.
+    assert not state.is_halted("kobold", now=5_000.0)
+    assert state.active_scouts() == ()
+    assert state.due_spawns(now=10_000_000.0) == ()
+    for point in state.spawn_points():
+        assert not state.is_pending(point.spawn_id)
+
+    # The static registry is retained — the world rebuilds from the same points.
+    assert state.is_registered("kobold_chief")
+    assert state.is_registered("goblin_guard_1")
+
+    # And the Shrine's 24h cycle is re-armed from the reset instant.
+    assert state.shrine_reset_at() == 5_000.0 + cfg.SHRINE_RESET

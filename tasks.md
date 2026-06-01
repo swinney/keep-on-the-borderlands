@@ -96,7 +96,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Leadership halt: chief AND shaman dead → 60-min repop freeze
 - [x] Rival-tribe scouting into the dead window + faction-pair shift
 - [x] Shrine 24h reset cycle + server broadcast
-- [ ] `season_manager`: orchestrate per-manager reset hooks; leaderboard snapshot; `end_season`
+- [x] `season_manager`: orchestrate per-manager reset hooks; leaderboard snapshot; `end_season`
 - [ ] Persistence check: characters/XP/gear/bank survive reset; `tests/repop` + `tests/seasonal_reset` green (M6 exit)
 
 - [ ] ⛔ MILESTONE GATE (M5+M6 → M7 review). When every M5 and M6 box above is
