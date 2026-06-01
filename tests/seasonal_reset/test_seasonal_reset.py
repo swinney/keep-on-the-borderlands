@@ -13,6 +13,8 @@ is a thin Evennia wrapper over this core (clock, real hooks, persistence).
 from __future__ import annotations
 
 import pytest
+from evennia.objects.models import ObjectDB
+from evennia.utils import create
 
 from world.factions.state import FactionState
 from world.season import config as cfg
@@ -250,6 +252,55 @@ def test_season_length_is_configurable() -> None:
 # ── Behavior 3: engine-level persistence (M6 Task 6) ─────────────────────────
 
 
-@pytest.mark.skip(reason="M6 Task 6 — engine-level player-data persistence check")
+@pytest.mark.django_db
 def test_reset_preserves_player_data() -> None:
-    """WHEN a season resets THEN level, XP, gear, and bank are unchanged."""
+    """WHEN a season resets THEN level, XP, gear, and bank are unchanged (spec §2-3).
+
+    Proves the season_manager contract that "anything attached to a player
+    Account/Character persists; anything owned by a world manager resets" by
+    running a real reset through the SeasonManager GlobalScript and confirming
+    the player character — its level, XP, carried gear, coin, and bank balance —
+    is untouched, while the season actually advances.
+    """
+    room = create.create_object("typeclasses.rooms.Room", key="sr-room-persist")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter",
+        key="sr-pc-persist",
+        location=room,
+    )
+    gear = create.create_object("typeclasses.objects.Object", key="sr-gear-persist", location=char)
+    manager = create.create_script("world.managers.season_manager.SeasonManager")
+    try:
+        char.db.char_class = "fighter"
+        char.traits.level.base = 4
+        char.traits.xp.current = 9000
+        char.db.coin = 40
+        char.db.bank_balance = 750
+        char_pk = char.pk
+        closing_season = manager.db.season_number
+
+        report = manager.end_season()
+
+        # The reset really happened: the season counter advanced.
+        assert report.new_season == closing_season + 1
+        assert manager.db.season_number == closing_season + 1
+
+        # Player character and all its attached data survive untouched.
+        assert ObjectDB.objects.filter(pk=char_pk).exists()
+        assert int(char.traits.level.value) == 4
+        assert int(char.traits.xp.current) == 9000
+        assert char.db.coin == 40
+        assert char.db.bank_balance == 750
+        # Carried gear is not despawned by the world rebuild — it belongs to the PC.
+        assert gear.location == char
+
+        # The survivor snapshot recorded this character under the *closing* season.
+        names = {e.character_name for e in manager.per_season(closing_season)}
+        assert "sr-pc-persist" in names
+    finally:
+        manager.delete()
+        for item in list(char.contents):
+            item.delete()
+        if char.pk is not None:
+            char.delete()
+        room.delete()

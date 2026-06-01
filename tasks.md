@@ -97,7 +97,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Rival-tribe scouting into the dead window + faction-pair shift
 - [x] Shrine 24h reset cycle + server broadcast
 - [x] `season_manager`: orchestrate per-manager reset hooks; leaderboard snapshot; `end_season`
-- [ ] Persistence check: characters/XP/gear/bank survive reset; `tests/repop` + `tests/seasonal_reset` green (M6 exit)
+- [x] Persistence check: characters/XP/gear/bank survive reset; `tests/repop` + `tests/seasonal_reset` green (M6 exit)
 
 - [ ] ⛔ MILESTONE GATE (M5+M6 → M7 review). When every M5 and M6 box above is
   checked, do NOT begin M7. As your entire action this turn, write the single line
