@@ -9,6 +9,7 @@ from evennia.server.models import ServerConfig
 from evennia.utils import create, lazy_property, logger
 from evennia.utils.search import search_object_by_tag, search_script
 
+from world.economy import secure_treasure
 from world.rules.abilities import ability_modifier
 from world.rules.combat import armor_class, is_dead
 from world.rules.henchmen import henchman_should_follow
@@ -50,6 +51,8 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         self.db.spell_disrupted: bool = False
         self.db.coin: int = 0
         self.db.bank_balance: int = 0
+        # Lifetime gp already converted to XP via XP-on-secure (economy.md §6).
+        self.db.secured_xp_credited: int = 0
         self.db.hardcore: bool = False
 
     @property
@@ -187,6 +190,9 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         super().at_post_move(source_location, **kwargs)
         if self.location is None:
             return
+        # Carrying coin alive into a Keep room secures it → XP-on-secure (economy.md §6).
+        if self.location.db.zone == "keep":
+            secure_treasure(self)
         for obj in list(self.location.contents):
             if getattr(obj, "IS_MOB", False) and callable(getattr(obj, "aggro_check", None)):
                 obj.aggro_check(self)

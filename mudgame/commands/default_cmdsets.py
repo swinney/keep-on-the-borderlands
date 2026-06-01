@@ -17,6 +17,14 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 from evennia import default_cmds
 
 from commands.combat import CmdAttack
+from commands.economy import (
+    CmdBalance,
+    CmdBuy,
+    CmdDeposit,
+    CmdList,
+    CmdSell,
+    CmdWithdraw,
+)
 from commands.faction import CmdConsider
 from commands.henchmen import CmdOrder
 from commands.spells import CmdCast, CmdRest
@@ -37,10 +45,16 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         """
         super().at_cmdset_creation()
         self.add(CmdAttack)
+        self.add(CmdBalance)
+        self.add(CmdBuy)
         self.add(CmdCast)
         self.add(CmdConsider)
+        self.add(CmdDeposit)
+        self.add(CmdList)
         self.add(CmdOrder)
         self.add(CmdRest)
+        self.add(CmdSell)
+        self.add(CmdWithdraw)
         #
         # any commands you add below will overload the default ones.
         #
