@@ -15,6 +15,7 @@ own cmdsets by inheriting from them or directly from `evennia.CmdSet`.
 """
 
 from evennia import default_cmds
+from evennia.contrib.grid.xyzgrid.commands import XYZGridCmdSet
 
 from commands.combat import CmdAttack
 from commands.economy import (
@@ -44,6 +45,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         Populates the cmdset
         """
         super().at_cmdset_creation()
+        self.add(XYZGridCmdSet)
         self.add(CmdAttack)
         self.add(CmdBalance)
         self.add(CmdBuy)

@@ -325,6 +325,32 @@ project-binding rules in the repo (`PROMPT.md` / project `CLAUDE.md`), not in
 your host environment. **Fixed:** the no-`Co-Authored-By` rule is now in
 `PROMPT.md`; the first commit after the fix was clean.
 
+### 5.12 The dependency that wasn't there  ·  *host↔loop environment parity*
+M8's wilderness spec mandates Evennia's `xyzgrid` contrib (coordinate hexes +
+web-client map rendering, architecture §2). A **pre-launch smoke test** — just
+importing `xyzgrid` before turning the loop loose — surfaced that it requires
+**SciPy**, which wasn't installed. Turn 1 would have died on the import. Two
+lessons, both about the gap between *your* environment and the *loop's*:
+- **The host and the loop have separate dependency manifests that must move
+  together.** The host resolves deps via `uv` (`pyproject` + `uv.lock`); the
+  loop container installs via a **hard-coded `pip` list in the `Containerfile`**.
+  Adding SciPy to only one would pass that environment's gate and fail the other
+  — silent host↔loop↔CI drift. The fix was a *two-sided* edit (pyproject/uv.lock
+  **and** Containerfile) + a container rebuild + a verify-in-container. Tellingly,
+  the first rebuild *looked* successful but `import scipy` still failed in the
+  container, because I'd updated only the host manifest — the smoke test caught
+  that too. **"It works on the host" proves nothing about the container the loop
+  actually runs in.**
+- **Smoke-test a new capability before asking the loop to use it.** The import
+  check cost seconds; discovering it via a stalled 20-minute turn (or the loop
+  escalating to `questions.md`) would have cost far more. Verify the tool exists
+  *before* the task depends on it.
+
+This also met the locked "avoid third-party deps unless strictly necessary" rule
+head-on: SciPy is heavy (NumPy, compiled wheels), so adding it was a **surfaced,
+deliberate decision** (xyzgrid is the spec'd + architecturally-chosen mechanism
+for the web-client map, a v1 default) — presented for sign-off, not slipped in.
+
 ---
 
 ## 6. Architectural decisions worth presenting

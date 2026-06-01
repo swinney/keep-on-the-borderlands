@@ -12,6 +12,9 @@ authors = [{ name = "Austin Swinney", email = "swinney@gmail.com" }]
 # deliberate, reviewable change rather than silent drift across loop turns.
 dependencies = [
   "evennia==6.0.0",
+  # Required by Evennia's xyzgrid contrib (architecture §2): coordinate-hex
+  # rooms + web-client map rendering for the wilderness/cave/shrine zones.
+  "scipy>=1.11,<2",
 ]
 
 [project.optional-dependencies]
@@ -103,6 +106,15 @@ disallow_untyped_decorators = true
 # first-party code first imports evennia.
 files = ["tests", "mudgame/world/rules", "mudgame/world/factions", "mudgame/world/henchmen", "mudgame/world/repop", "mudgame/world/season", "mudgame/world/zones"]
 
+# Zone-local room typeclasses (e.g. world/zones/wilderness/typeclasses.py) are
+# Evennia-coupled — they subclass XYZRoom/DefaultRoom (untyped Any bases) — and
+# follow the same "out of strict scope" rule as mudgame/typeclasses/ and
+# world/managers/. They live inside the otherwise-strict world/zones package,
+# so exclude them by path. Pure zone data (xymap, mobs, spawns, npcs, records,
+# builder) stays strictly checked; nothing in strict scope imports these
+# modules (they are referenced only by dotted-path string from prototypes).
+exclude = '(^|/)world/zones/[^/]+/typeclasses\.py$'
+
 # First-party engine tests (tests/engine/) now import evennia/django, so the
 # missing-imports override below is "used" — restoring it earlier triggered
 # "unused override" warnings under warn_unused_configs (M2; see M0 handoff note
@@ -111,6 +123,17 @@ files = ["tests", "mudgame/world/rules", "mudgame/world/factions", "mudgame/worl
 # while keeping our own code strict.
 [[tool.mypy.overrides]]
 module = ["evennia.*", "django.*"]
+ignore_missing_imports = true
+
+# Engine typeclasses (mudgame/typeclasses/) are Evennia-coupled and out of
+# strict scope by convention (ADR 0004), the same as world/managers/. M8's
+# wilderness tests import them by name (isinstance(obj, Mob),
+# create_object(PlayerCharacter, ...)); without this, following those imports
+# would drag their untyped Evennia base classes into strict checking. Treating
+# them as Any at the import boundary matches the documented rule.
+[[tool.mypy.overrides]]
+module = ["typeclasses.*"]
+follow_imports = "skip"
 ignore_missing_imports = true
 
 # ────────────────────────────────────────────────────────────────────────────
