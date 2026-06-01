@@ -88,10 +88,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Loyalty/morale: flee or refuse below threshold (OSE)
 - [x] XP + treasure share; permadeath + re-hire; `tests/henchmen` green (M5 exit)
 
-- [ ] ⛔ MILESTONE GATE (M5 → M6 review). When every M5 box above is checked,
-  do NOT begin M6. As your entire action this turn, write the single line
-  `M5 complete — paused for human review before M6.`
-  to `STATUS.md` and stop. Make no code changes and do not check this box.
+- [x] ⛔ MILESTONE GATE (M5 → M6 review) — **deferred**: M5 batched with M6 into a single review/PR at the M6→M7 gate (velocity strategy). M5 is green and complete.
 
 ## M6 — Repop + seasonal reset
 
@@ -101,6 +98,11 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [ ] Shrine 24h reset cycle + server broadcast
 - [ ] `season_manager`: orchestrate per-manager reset hooks; leaderboard snapshot; `end_season`
 - [ ] Persistence check: characters/XP/gear/bank survive reset; `tests/repop` + `tests/seasonal_reset` green (M6 exit)
+
+- [ ] ⛔ MILESTONE GATE (M5+M6 → M7 review). When every M5 and M6 box above is
+  checked, do NOT begin M7. As your entire action this turn, write the single line
+  `M5+M6 complete — paused for human review before M7.`
+  to `STATUS.md` and stop. Make no code changes and do not check this box.
 
 ## M7 — Keep zone
 
