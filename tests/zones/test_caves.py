@@ -17,7 +17,7 @@ import pytest
 from world.factions.config import FACTIONS
 from world.repop import config as repop_cfg
 from world.zones import caves
-from world.zones.caves import discovery
+from world.zones.caves import discovery, kobold
 from world.zones.spawn_registry import spawn_points
 
 # Aggregated zone data (ravine hub + every discovered tribe), exposed off the
@@ -112,7 +112,7 @@ def test_mob_factions_are_valid_ids() -> None:
 
 
 def test_kobold_mobs_use_kobold_faction() -> None:
-    assert all(m["faction"] == "kobold" for m in MOB_TEMPLATES)
+    assert all(m["faction"] == "kobold" for m in kobold.MOB_TEMPLATES)
 
 
 def test_mob_ascending_ac_in_range() -> None:
@@ -145,7 +145,7 @@ def test_spawn_rooms_exist() -> None:
 
 
 def test_kobold_tribe_has_exactly_one_chief_and_one_shaman() -> None:
-    roles = [s.get("leader_role") for s in SPAWNS if s.get("is_leader")]
+    roles = [s.get("leader_role") for s in kobold.SPAWNS if s.get("is_leader")]
     assert roles.count("chief") == 1, "kobold tribe needs exactly one chief spawn"
     assert roles.count("shaman") == 1, "kobold tribe needs exactly one shaman spawn"
 
@@ -183,7 +183,7 @@ def test_spawn_points_resolve_faction_from_template() -> None:
 
 def test_derived_points_have_one_chief_and_one_shaman_leader() -> None:
     """The two kobold leaders the R3 halt depends on survive derivation."""
-    points = spawn_points("caves", SPAWNS, MOB_TEMPLATES)
+    points = spawn_points("caves", kobold.SPAWNS, kobold.MOB_TEMPLATES)
     leaders = [p for p in points if p.is_leader]
     roles = [p.leader_role for p in leaders]
     assert roles.count("chief") == 1
