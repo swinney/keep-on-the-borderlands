@@ -17,11 +17,15 @@ import pytest
 from world.factions.config import FACTIONS
 from world.repop import config as repop_cfg
 from world.zones import caves
-from world.zones.caves.exits import EXITS
-from world.zones.caves.mobs import MOB_TEMPLATES
-from world.zones.caves.rooms import ROOMS
-from world.zones.caves.spawns import SPAWNS
+from world.zones.caves import discovery
 from world.zones.spawn_registry import spawn_points
+
+# Aggregated zone data (ravine hub + every discovered tribe), exposed off the
+# package now that rooms/exits/mobs/spawns live in per-tribe subpackages.
+EXITS = caves.EXITS
+MOB_TEMPLATES = caves.MOB_TEMPLATES
+ROOMS = caves.ROOMS
+SPAWNS = caves.SPAWNS
 
 # Rooms that are part of a (dark) lair vs the open-air ravine spine.
 RAVINE_ROOMS: frozenset[str] = frozenset({"ravine", "ravine_north", "ravine_mid", "ravine_south"})
@@ -603,3 +607,20 @@ def test_kobold_kills_drive_standing_to_kos_and_surviving_kobold_aggros(
         assert any("attacks" in m.lower() for m in messages)
     finally:
         _teardown_room(room, char)
+
+
+# ---------------------------------------------------------------------------
+# Group 6 — Tribe discovery (fanout-harness.md §3; pure, no Evennia)
+# ---------------------------------------------------------------------------
+
+
+def test_discovery_finds_kobold_tribe() -> None:
+    names = [m.__name__.rsplit(".", 1)[-1] for m in discovery.tribes()]
+    assert "kobold" in names
+    assert all(hasattr(m, "build") for m in discovery.tribes())
+
+
+def test_discovery_skips_private_and_dunder() -> None:
+    names = [m.__name__.rsplit(".", 1)[-1] for m in discovery.tribes()]
+    assert not any(n.startswith("_") for n in names)
+    assert "__pycache__" not in names
