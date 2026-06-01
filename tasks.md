@@ -99,10 +99,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] `season_manager`: orchestrate per-manager reset hooks; leaderboard snapshot; `end_season`
 - [x] Persistence check: characters/XP/gear/bank survive reset; `tests/repop` + `tests/seasonal_reset` green (M6 exit)
 
-- [ ] ⛔ MILESTONE GATE (M5+M6 → M7 review). When every M5 and M6 box above is
-  checked, do NOT begin M7. As your entire action this turn, write the single line
-  `M5+M6 complete — paused for human review before M7.`
-  to `STATUS.md` and stop. Make no code changes and do not check this box.
+- [x] ⛔ MILESTONE GATE (M5+M6 → M7 review) — **passed**: M5+M6 reviewed and merged via PR #5.
 
 ## M7 — Keep zone
 
@@ -110,6 +107,11 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [ ] Provisioner shop + economy (starting gold, pricing, gold sinks); bank
 - [ ] Tavern henchman roster integration; chapel staff NPCs (priest pool placeholder)
 - [ ] Rest / spell memorization in the Keep; new character spawns→equips→hires→rests (M7 exit)
+
+- [ ] ⛔ MILESTONE GATE (M7 → M8 review). When every M7 box above is checked,
+  do NOT begin M8. As your entire action this turn, write the single line
+  `M7 complete — paused for human review before M8.`
+  to `STATUS.md` and stop. Make no code changes and do not check this box.
 
 ## M8 — Wilderness zone
 
