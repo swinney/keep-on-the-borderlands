@@ -26,10 +26,13 @@
   timeouts on one hard task triggered the self-halt; a human escalated that turn
   to the stronger model and finished it in minutes. The model-by-risk strategy
   is not theory — it's the documented recovery path.
-- **As of this writing:** through M8 — systems layer + the Keep *and* the
-  wilderness (xyzgrid hex map, travel, encounters). 371 passing tests, zero red
-  commits reached `main`. M4/M5 on Sonnet; M6/M7 on Opus clean; M8 survived a
-  real stall + a session-limit outage and recovered with zero lost work.
+- **As of this writing:** through M9 — systems layer + the Keep, the wilderness,
+  *and* the kobold-cave vertical slice that proves every subsystem composes
+  end-to-end (spawn → travel three zones → clear a tribe on a bounty → bank for
+  XP). 426 passing tests, zero red commits reached `main`. M4/M5 on Sonnet;
+  M6/M7/M9 on Opus clean; M8 and M9 each survived an interruption (session-limit
+  outage; host reboot) and recovered with zero lost work — the harness has now
+  held three independent times.
 
 ---
 
@@ -211,6 +214,31 @@ Copilot's PR #7 review was the lowest-severity yet — 5 findings, no real bugs 
 deferred stub exit, a missing idempotency test, two doc-accuracy fixes), plus one
 **verified-false** mypy-exclude claim (falsified in seconds by injecting a type
 error and watching `mypy` stay green). 371 tests green.
+
+### M9 — Kobold cave vertical slice ⭐ (the critical-integration milestone; a third "harness held")
+The milestone the whole build order points at: the first cave, but really a
+proof that *every subsystem composes*. Five tasks, all on Opus-from-start (the
+model-by-risk call for an integration milestone), all clean — caves rooms+mobs,
+the chief+shaman leadership-halt wiring into M6, the M4↔M9 faction-standing tie,
+the Guildmaster bounty + treasure→XP-on-secure loop, and the headline exit test.
+That last test (`test_m9_vertical_slice`) drives one live world with all three
+zones built and linked through the full acceptance loop — spawn → equip → hire →
+travel the real keep↔wilderness↔caves exit graph → clear the tribe → return →
+turn in → bank for XP — so a break in any inter-zone link surfaces *here*, before
+M10 builds seven more caves the same way. It also pins the cross-subsystem kill
+credit (a henchman's kills credit its employer's bounty *and* faction standing,
+henchmen.md §4) and the XP-on-secure idempotency (the same coin never pays twice).
+
+The war story is a **third independent "the harness held"** (after M3 and M8),
+this time from the most mundane cause yet: a **host reboot**. Turn 50 had written
+the 272-line integration test and it *passed* — but the reboot killed the turn
+seconds before its `git commit`. Because the test lived in the bind-mounted tree,
+not container-ephemeral state, the work survived verbatim; the recovery was to
+re-run it (green), run the full gate, and commit the loop's own completed work.
+*Lesson reinforced:* the commit boundary is the durability guarantee, but it is
+not the only state worth inspecting — checking the actual working tree turned a
+presumed "redo task 5" into a one-command "just commit it," saving a full Opus
+turn. Verify real state; don't trust the checkbox alone. 426 tests green.
 
 ---
 
@@ -418,14 +446,14 @@ the lean context file, the model strategy, and the milestone-gate sentinel.
 
 | Metric | Value |
 |---|---|
-| Total commits | 109 |
-| Unattended loop turns | 45 |
-| Models used | Sonnet 4.6 (M1/M2/M4/M5; M8 content) · Opus 4.8 (config-critical turns, M2-turn-1, M3 recovery, all of M6/M7, M8 xyzgrid recovery) |
-| Tests | 371 passing / 40 Phase-0 stubs skipped |
-| Pure rules / logic modules | 8 + system packages (`repop`, `season`) + zones (`keep`, `wilderness` on xyzgrid) |
+| Total commits | 115 |
+| Unattended loop turns | 50 |
+| Models used | Sonnet 4.6 (M1/M2/M4/M5; M8 content) · Opus 4.8 (config-critical turns, M2-turn-1, M3 recovery, all of M6/M7/M9, M8 xyzgrid recovery) |
+| Tests | 426 passing / 40 Phase-0 stubs skipped |
+| Pure rules / logic modules | 8 + system packages (`repop`, `season`, `quests`) + zones (`keep`, `wilderness` on xyzgrid, `caves`) |
 | Red commits reaching `main` | 0 |
-| Milestones complete | Phase 0, M0–M6 (systems) + M7 (Keep) + M8 (wilderness) |
-| Loop tasks needing human recovery | 2 (M3 debugging spiral §5.10; M8 xyzgrid stall+outage §5.12) — zero lost work both times |
+| Milestones complete | Phase 0, M0–M6 (systems) + M7 (Keep) + M8 (wilderness) + M9 (kobold vertical slice ⭐) |
+| Loop tasks needing human recovery | 3 (M3 debugging spiral §5.10; M8 xyzgrid stall+outage §5.12; M9 reboot-killed commit) — zero lost work all three |
 | Specs the loop authored itself | 2 (M7 economy, M8 wilderness detail) |
 | Copilot-reviewed PRs | #1 (~13) · #2 (clean) · #3 (9, 1 real bug) · #4 (5, 2 real bugs) · #5 (1, integration bug) · #6 (clean, auto-merged) · #7 (5, no real bugs) |
 
