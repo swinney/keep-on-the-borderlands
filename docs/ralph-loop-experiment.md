@@ -26,10 +26,10 @@
   timeouts on one hard task triggered the self-halt; a human escalated that turn
   to the stronger model and finished it in minutes. The model-by-risk strategy
   is not theory — it's the documented recovery path.
-- **As of this writing:** 93 commits, 31 unattended loop turns, 284 passing
-  tests, through M6 — the **entire systems layer is complete** (factions,
-  henchmen, repop, seasonal reset). Zero red commits reached `main`. M4/M5 ran
-  unattended on Sonnet; M6 ran unattended on Opus (stateful) with zero stalls.
+- **As of this writing:** through M7 — systems layer complete *and the first
+  content zone (the Keep) built*, with a working spawn→equip→hire→rest onboarding
+  flow. 351 passing tests, zero red commits reached `main`. M4/M5 ran unattended
+  on Sonnet; M6/M7 on Opus (stateful/integration) with zero stalls.
 
 ---
 
@@ -176,6 +176,18 @@ unify onto the single season-owned store (death → `season_manager.record_fell`
 delete the legacy placeholder. **Lesson: batching isn't only a latency win — it
 widens the review's blast radius enough to catch integration drift that isolated
 green suites never will.**
+
+### M7 — Keep zone (complete; first content milestone; the loop authored its own spec)
+The systems→content boundary. The loop built the Keep's rooms/exits, the
+provisioner economy + bank (XP-on-secure), tavern/chapel NPCs, and — the exit
+criterion — a **full onboarding integration test: spawn → equip → hire → rest**,
+the first time the systems run together as a playable flow (a direct precursor
+to M9's vertical slice). Two process notes worth a slide: (1) **the loop wrote a
+missing spec itself** — Phase 0 hadn't detailed the economy, so the loop spent
+three turns spec → test-stubs → implementation (PROMPT workflow steps 3–5),
+exactly as designed, which is why M7 ran longer than prior milestones; (2) run
+on **Opus** (integration-heavy), it completed all four tasks with no stall.
+351 tests green.
 
 ---
 
@@ -360,13 +372,14 @@ the lean context file, the model strategy, and the milestone-gate sentinel.
 | Total commits | 93 |
 | Unattended loop turns | 31 |
 | Models used | Sonnet 4.6 (M1/M2/M4/M5) · Opus 4.8 (config-critical turns, M2-turn-1 supervise, M3 stall recovery, **all of M6** stateful) |
-| Tests | 284 passing / 40 Phase-0 stubs skipped |
-| Pure rules / logic modules | 8 (`dice`, `abilities`, `progression`, `combat`, `saves`, `spells`, `factions`, `henchmen`) + system packages (`repop`, `season`) |
+| Tests | 351 passing / 40 Phase-0 stubs skipped |
+| Pure rules / logic modules | 8 (`dice`, `abilities`, `progression`, `combat`, `saves`, `spells`, `factions`, `henchmen`) + system packages (`repop`, `season`) + first zone (`zones/keep`) |
 | Red commits reaching `main` | 0 |
-| Milestones complete | Phase 0, M0–M6 (**entire systems layer**) |
+| Milestones complete | Phase 0, M0–M6 (systems layer) + M7 (Keep zone — first content) |
 | Loop tasks needing human recovery | 1 (M3 task 3 — debugging spiral, §5.10) |
-| Milestones run fully unattended | 3 (M4, M5 on Sonnet; M6 on Opus — all self-halted at gates) |
-| Copilot-reviewed PRs | #1 (~13) · #2 (clean) · #3 (9, 1 real bug) · #4 (5, 2 real bugs) · #5 (1, a cross-milestone integration bug) |
+| Milestones run fully unattended | 4 (M4, M5 on Sonnet; M6, M7 on Opus — all self-halted at gates) |
+| Specs the loop authored itself | 1 (M7 economy — Phase 0 hadn't detailed it; loop did spec→test→impl) |
+| Copilot-reviewed PRs | #1 (~13) · #2 (clean) · #3 (9, 1 real bug) · #4 (5, 2 real bugs) · #5 (1, cross-milestone integration bug) |
 
 ---
 
