@@ -200,6 +200,10 @@ BODY
   if [ -n "$pr_num" ]; then
     # Request Copilot review via gh cli (preferred over raw API). Non-fatal:
     # the PR exists either way, so a reviewer-request hiccup must not stall.
+    # NOTE: fanout-land.sh only auto-merges when there are zero Copilot inline
+    # comments — which presumes a review was actually produced. If this request
+    # silently no-ops (env-dependent reviewer slug), no review is generated, so
+    # confirm Copilot reviewed before relying on `make fanout-land` to merge.
     gh pr edit "$pr_num" --add-reviewer copilot 2>/dev/null || \
       echo "fanout: tribe ${tribe}: note — could not add Copilot reviewer (non-fatal)"
     echo "fanout: tribe ${tribe}: PR #${pr_num} opened — slot freed"
