@@ -26,7 +26,7 @@ from commands.economy import (
     CmdWithdraw,
 )
 from commands.faction import CmdConsider
-from commands.henchmen import CmdOrder
+from commands.henchmen import CmdHire, CmdOrder, CmdRoster
 from commands.spells import CmdCast, CmdRest
 
 
@@ -50,9 +50,11 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
         self.add(CmdCast)
         self.add(CmdConsider)
         self.add(CmdDeposit)
+        self.add(CmdHire)
         self.add(CmdList)
         self.add(CmdOrder)
         self.add(CmdRest)
+        self.add(CmdRoster)
         self.add(CmdSell)
         self.add(CmdWithdraw)
         #

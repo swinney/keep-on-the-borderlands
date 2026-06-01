@@ -91,6 +91,25 @@ class Mob(ObjectParent, DefaultCharacter):
             self.at_aggro(character)
 
 
+class ServiceNpc(Mob):
+    """Peaceful static Keep NPC: tavernkeeper, Curate, chapel staff.
+
+    Carries a short rpsystem-style ``sdesc`` and a human-readable ``role``; it
+    never aggresses (the Keep is a no-combat zone — it sets no ``faction_id``,
+    so the inherited ``aggro_check`` is a no-op). The disguised-priest plot
+    (M12) draws its seasonal spy from the chapel-staff ServiceNpcs the builder
+    tags ``priest_pool``.
+    """
+
+    IS_SERVICE_NPC: bool = True
+
+    def at_object_creation(self) -> None:
+        super().at_object_creation()
+        self.db.npc_key = ""  # stable zone identity (e.g. "tavernkeeper")
+        self.db.sdesc = ""  # short description shown before identification
+        self.db.role = ""  # human-readable function (e.g. "almoner")
+
+
 class Henchman(Mob):
     """AI follower hired from the Keep tavern (docs/specs/henchmen.md §5).
 

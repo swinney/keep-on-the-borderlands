@@ -13,7 +13,7 @@ import pytest
 from evennia.utils.search import search_object_by_tag
 
 from world.zones import keep
-from world.zones.builder import EXIT_CATEGORY, RECALL_TAG, ROOM_CATEGORY
+from world.zones.builder import EXIT_CATEGORY, NPC_CATEGORY, RECALL_TAG, ROOM_CATEGORY
 
 
 def _keep_rooms() -> list[Any]:
@@ -22,6 +22,10 @@ def _keep_rooms() -> list[Any]:
 
 def _keep_exits() -> list[Any]:
     return list(search_object_by_tag(category=EXIT_CATEGORY))
+
+
+def _keep_npcs() -> list[Any]:
+    return list(search_object_by_tag(category=NPC_CATEGORY))
 
 
 def _find_room(room_key: str) -> Any:
@@ -36,6 +40,10 @@ def built_keep() -> Iterator[None]:
     try:
         yield
     finally:
+        # NPCs first: deleting a room relocates leftover contents, which can
+        # touch already-deleted exits (build() now also places NPCs).
+        for npc in _keep_npcs():
+            npc.delete()
         for exit_ in _keep_exits():
             exit_.delete()
         for room in _keep_rooms():

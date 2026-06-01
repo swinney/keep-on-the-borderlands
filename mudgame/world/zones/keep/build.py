@@ -12,12 +12,15 @@ keeping the pure zone-data tests Django-free.
 from __future__ import annotations
 
 from world.zones.keep.exits import EXITS
+from world.zones.keep.npcs import NPCS, PLACEMENT, PRIEST_POOL
 from world.zones.keep.rooms import ROOMS, ZONE
 
 
 def build() -> None:
-    """Create/update the Keep's rooms and exits and mark the recall point."""
+    """Create/update the Keep's rooms, exits, NPCs and mark the recall point."""
     from world.zones import builder  # noqa: PLC0415 (lazy: defer Evennia import)
 
     builder.build_zone(ZONE, ROOMS, EXITS)
     builder.tag_recall_point(ZONE, "inner_bailey")
+    builder.build_npcs(ZONE, NPCS, PLACEMENT)
+    builder.tag_priest_pool(ZONE, PRIEST_POOL)

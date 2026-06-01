@@ -15,17 +15,24 @@ from typing import Any
 from evennia.utils import create
 from evennia.utils.search import search_object_by_tag
 
-from world.zones.records import ExitRecord, RoomRecord
+from world.zones.records import ExitRecord, NpcRecord, RoomRecord
 
 ROOM_CATEGORY = "zone_room"
 EXIT_CATEGORY = "zone_exit"
+NPC_CATEGORY = "zone_npc"
 FLAG_CATEGORY = "room_flag"
 ROOM_TYPECLASS = "typeclasses.rooms.Room"
 EXIT_TYPECLASS = "typeclasses.exits.Exit"
+NPC_TYPECLASS = "typeclasses.npcs.ServiceNpc"
 
 # Tag (category None) marking the server-wide recall destination, matched by
 # PlayerCharacter._find_recall_room via search_object_by_tag("inner_bailey").
 RECALL_TAG = "inner_bailey"
+
+# Tag (category None) marking the chapel-staff pool the disguised-priest plot
+# rotates its seasonal spy through (disguised-priest.md §2); the M12
+# priest_manager finds the pool via search_object_by_tag(PRIEST_POOL_TAG).
+PRIEST_POOL_TAG = "priest_pool"
 
 
 def _zonekey(zone: str, key: str) -> str:
@@ -98,6 +105,45 @@ def build_exits(zone: str, exits: list[ExitRecord]) -> None:
             exit_obj.destination = destination
 
 
+def _npc_identity(zone: str, npc_key: str) -> str:
+    """Stable global identity for a static NPC: ``"<zone>:npc:<key>"``."""
+    return f"{zone}:npc:{npc_key}"
+
+
+def find_npc(zone: str, npc_key: str) -> Any:
+    """Return the live NPC object for ``zone:npc_key``, or None if unbuilt."""
+    return _find_tagged(_npc_identity(zone, npc_key), NPC_CATEGORY)
+
+
+def build_npcs(zone: str, npcs: list[NpcRecord], placement: dict[str, str]) -> None:
+    """Create or update every static NPC and place it in its room (idempotent).
+
+    ``placement`` maps each NPC ``key`` to the room ``key`` it stands in. An NPC
+    whose room is not built (or not placed) is skipped silently, mirroring the
+    deferred-target handling in ``build_exits``.
+    """
+    for record in npcs:
+        room_key = placement.get(record["key"])
+        if room_key is None:
+            continue
+        room = _find_tagged(_zonekey(zone, room_key), ROOM_CATEGORY)
+        if room is None:
+            continue
+        identity = _npc_identity(zone, record["key"])
+        npc = _find_tagged(identity, NPC_CATEGORY)
+        if npc is None:
+            npc = create.create_object(NPC_TYPECLASS, key=record["name"], location=room)
+            npc.tags.add(identity, category=NPC_CATEGORY)
+        npc.key = record["name"]
+        npc.location = room
+        npc.db.npc_key = record["key"]
+        npc.db.sdesc = record["sdesc"]
+        npc.db.role = record["role"]
+        inventory = record.get("inventory")
+        if inventory is not None:
+            npc.db.inventory = list(inventory)
+
+
 def build_zone(zone: str, rooms: list[RoomRecord], exits: list[ExitRecord]) -> None:
     """Build a whole zone: rooms first, then exits (idempotent)."""
     build_rooms(zone, rooms)
@@ -109,3 +155,11 @@ def tag_recall_point(zone: str, room_key: str) -> None:
     room = _find_tagged(_zonekey(zone, room_key), ROOM_CATEGORY)
     if room is not None and not room.tags.has(RECALL_TAG):
         room.tags.add(RECALL_TAG)
+
+
+def tag_priest_pool(zone: str, npc_keys: tuple[str, ...]) -> None:
+    """Mark each built NPC in ``npc_keys`` as a disguised-priest pool member."""
+    for npc_key in npc_keys:
+        npc = find_npc(zone, npc_key)
+        if npc is not None and not npc.tags.has(PRIEST_POOL_TAG):
+            npc.tags.add(PRIEST_POOL_TAG)
