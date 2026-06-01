@@ -106,7 +106,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Build `world/zones/keep/` rooms + exits (recall = Inner Bailey)
 - [x] Provisioner shop + economy (starting gold, pricing, gold sinks); bank
 - [x] Tavern henchman roster integration; chapel staff NPCs (priest pool placeholder)
-- [ ] Rest / spell memorization in the Keep; new character spawns→equips→hires→rests (M7 exit)
+- [x] Rest / spell memorization in the Keep; new character spawns→equips→hires→rests (M7 exit)
 
 - [ ] ⛔ MILESTONE GATE (M7 → M8 review). When every M7 box above is checked,
   do NOT begin M8. As your entire action this turn, write the single line
