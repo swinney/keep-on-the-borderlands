@@ -35,11 +35,12 @@ ROOMS: list[RoomRecord] = [
         "zone": ZONE,
         "dark": True,
         "desc": (
-            "A broad vaulted hall just inside the gate, torchlit with smoky "
-            "pine brands set in iron rings. Passages branch east to the "
-            "barracks, west to the mess, and north deeper into the lair. "
-            "Hobgoblin soldiers form up here before sorties; a duty-roster is "
-            "scratched into the stone near the torch-stand."
+            "A broad vaulted hall just inside the gate, its smoky pine brands "
+            "burned down to cold stubs in their iron rings — the disciplined "
+            "sentries keep no light and trust their own dark-sight. Passages "
+            "branch east to the barracks, west to the mess, and north deeper "
+            "into the lair. Hobgoblin soldiers form up here before sorties; a "
+            "duty-roster is scratched into the stone near the empty torch-stand."
         ),
     },
     {
@@ -88,8 +89,8 @@ ROOMS: list[RoomRecord] = [
             "A T-shaped junction where the lair's rear corridors meet. The "
             "air is drier here — the cave bores deeper north toward the king's "
             "chambers. An arched side-passage to the east reeks of old iron; "
-            "to the west a guttering candle marks Vurt's door. The entry hall "
-            "lies back to the south."
+            "to the west an unlit candle-stub marks Vurt's door. The entry "
+            "hall lies back to the south."
         ),
     },
     {
@@ -110,8 +111,9 @@ ROOMS: list[RoomRecord] = [
         "zone": ZONE,
         "dark": True,
         "desc": (
-            "A low room choked with acrid smoke from a brazier of coals and "
-            "bone dust. Dried bat wings and humanoid finger-bones hang on "
+            "A low room thick with the acrid reek of a brazier of spent, "
+            "ash-grey coals and bone dust. Dried bat wings and humanoid "
+            "finger-bones hang on "
             "strings from the ceiling. Here Vurt, the hobgoblin shaman, "
             "communes with the dark spirits he claims to control. His gaze "
             "misses nothing. The inner passage lies back to the east."
