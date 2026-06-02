@@ -79,9 +79,9 @@ def test_no_dangling_exits() -> None:
 
 def test_entrance_exits_off_ravine_south() -> None:
     from_south = [e for e in bugbear.EXITS if e["from"] == "ravine_south"]
-    to_mouth = [e for e in bugbear.EXITS if e["to"] == "bugbear_mouth"]
+    to_south = [e for e in bugbear.EXITS if e["to"] == "ravine_south"]
     assert from_south, "no exit from ravine_south into the bugbear lair"
-    assert to_mouth, "no return exit back to ravine_south"
+    assert to_south, "no return exit back to ravine_south"
 
 
 def test_exit_directions_are_reversible() -> None:
