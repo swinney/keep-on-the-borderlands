@@ -240,6 +240,51 @@ not the only state worth inspecting — checking the actual working tree turned 
 presumed "redo task 5" into a one-command "just commit it," saving a full Opus
 turn. Verify real state; don't trust the checkbox alone. 426 tests green.
 
+### M10 — Remaining caves (the fan-out experiment, and why we retired it)
+M10 is the milestone §10 flagged as "the extreme parallel case" — five
+independent tribes — so we built the **fan-out harness** (one clone + container
+per tribe, pooled, Sonnet, per-tribe PRs) and launched all five. It *worked* in
+the narrow sense: five green tribes merged. But the honest verdict, reached the
+same session, is that **at this scale the fan-out was net-negative, and we
+retired it.** Four reasons, each its own war story (§5.13–5.16):
+
+1. **Intent isolation ≠ process isolation (§5.13).** Each tribe had its own
+   clone, branch, and scoped `tribe-tasks.md` — perfect *infrastructure*
+   isolation — but nothing stopped a loop from reading the canonical `tasks.md`
+   and over-delivering. The orc loop built the *entire milestone* before we
+   stopped it. Scope was enforced in the filesystem, not the prompt.
+2. **A discovery aggregator silently re-shares "isolated" files.** The per-tribe
+   subpackage design promised zero shared-file edits, but `test_caves.py` asserts
+   against the *aggregate* namespace — so the moment a second tribe added a
+   chief/shaman, the kobold leader-lookup turned ambiguous and *every* tribe loop
+   independently edited the same helper. *A test of the aggregate is an implicit
+   shared file; it belongs with the hub, not edited per unit.*
+3. **"All PRs green" ≠ "main green."** Each tribe PR's CI proved only kobold +
+   that tribe; the six-tribe union was a global property no single PR verified —
+   and the merged-union check is exactly where a real isolation leak surfaced
+   (Copilot caught it: a teardown that leaked mobs across parametrized cases).
+   The merged-main verification is mandatory, not optional.
+4. **Coordination cost swamped the parallelism.** Per-tribe PRs, a manual Copilot
+   request on each, clone/container juggling, and a *fail-open* auto-merge gate
+   (the lander matched the wrong Copilot bot login and would have merged
+   unreviewed PRs) — all human-supervised. For five small packages that each take
+   one focused turn, the overhead exceeded the wall-clock saved.
+
+**The salvage saved it.** Because the rogue orc branch was complete *and green*,
+recovery was to cherry-pick each clean per-tribe subpackage from it onto fresh
+branches off `main` and land them serially through review — the runaway became
+the asset. The minotaur maze + Shrine passage and the cross-tribe
+rivalry/repop-halt integration test (the M10 exit: *"faction rivalries and repop
+halts demonstrably fire under test"*) came the same way. 576 tests green; caves
+complete.
+
+**Verdict: retired.** The content layer is parallel *in principle*, but at this
+project's scale the serial single-loop build is simpler and the parallelism
+wasn't worth its coordination tax. The harness scripts + this retrospective stay
+as the record. *The deeper lesson outlived the harness: the bottleneck was never
+turn throughput — it was the human-gate cycle and operator discipline, and more
+containers fix neither.*
+
 ---
 
 ## 4. What worked (successes)
@@ -404,6 +449,72 @@ for the web-client map, a v1 default) — presented for sign-off, not slipped in
 
 ---
 
+### A different class of failure: operator discipline (the M10 session)
+
+5.1–5.12 were *scaffolding gaps* — the model wrote good code; the harness around
+it had holes. 5.13–5.16 are a different and more uncomfortable category: the
+**operator** (the supervising agent driving the session) went off the rails while
+the underlying methodology held. The system was sound; the hands on it were not.
+Worth recording precisely because they're the failures a "the loop works!" story
+usually omits.
+
+### 5.13 The fan-out's intent-isolation gap  ·  *scope lived in the filesystem, not the prompt*
+The fan-out gave each tribe its own clone, branch, and scoped `tribe-tasks.md` —
+flawless *process* isolation. But a `claude -p` loop reads the whole repo, and
+nothing forbade it from opening the canonical `tasks.md` and "helpfully" building
+the next tribe too. The orc loop built **all six tribes + minotaur + the exit**
+before we stopped it. **Lesson:** infrastructure isolation ≠ intent isolation; a
+scoped task list is a hint, not a fence — the scope constraint has to be in the
+prompt (and ideally enforced), not just the directory layout.
+
+### 5.14 The flaky-test rabbit hole  ·  *brute force before analysis*
+A `test_build_creates_every_room` failure seen **once** sent the operator into
+~15+ full-suite reproductions chasing a "flaky" bug — before the near-free
+analysis that should have come first: the zone builder is provably *per-room
+idempotent* (it cannot under-create the room set), and the test DB is **in-memory**
+(per-process, so concurrent runs can't corrupt it). The failure never reproduced
+in a clean environment; the evidence pointed back at the operator's own concurrent
+containers (§5.15). **Lesson:** for an intermittent failure, ask *is it possible
+from the code? is it an infra artifact? does it matter?* **before** the
+reproduction loop. One observed failure is not a deterministic bug. (Real
+test-isolation debt does exist — Copilot later pinpointed a concrete leak in
+seconds — which is the point: cheap analysis and review find these; brute force
+burns hours.)
+
+### 5.15 Self-inflicted environment chaos  ·  *background-process hygiene*
+Chasing 5.14, the operator `&`-backgrounded `podman run` commands that detached
+into **auto-named** containers (`boring_austin`, `quizzical_turing`). Every
+cleanup grepped the `kotb-` name prefix, so they were invisible — they ran full
+pytest suites on a loop for an hour, starved CPU, and made killed pytest appear to
+"respawn" (a new container kept launching it). ~38 short-lived waiter tasks also
+piled up. **Lessons:** never bare-`&` a long job — use a tracked background
+mechanism that's killable by id; **name *and* verify** with a *broad* process
+check, not a name-prefix grep that auto-named containers slip past; don't pipe a
+backgrounded job through `tail` (it buffers — you fly blind); one orchestrator at
+a time. (Captured as the `bg-process-hygiene` operator memory.)
+
+### 5.16 The Copilot epistemic spiral  ·  *four wrong theories vs. one ground truth*
+Asked why Copilot auto-review seemed to have stopped, the operator produced
+**four** successive confident causal theories — "token permissions" → "never
+automatic" → "auto but rate-limited" → "burst lag" — each inferred from PR
+timestamps and a `gh api .../rulesets` call that returned `[]` (a *permissions*
+artifact, not "no rulesets"), and each **contradicting the user**, who held ground
+truth: they request Copilot manually; a ruleset on the default branch covers it.
+**Lesson:** don't construct causal narratives for external-system behavior from
+indirect signals; state what's verified, flag uncertainty, and defer to the user's
+direct knowledge of their own setup. One verified fact beats a tidy story.
+(Captured as the `defer-to-ground-truth` and `triage-before-brute-force`
+operator memories.)
+
+**The meta-lesson:** the Ralph methodology proved *resilient* this session — it
+absorbed a reboot's worth of operator thrash without a red commit or lost work —
+which is itself a finding, but a dangerous one: resilience masks sloppiness. The
+portable framework needs an **operator-discipline checklist** (background-process
+hygiene, triage-before-brute-force, defer-to-ground-truth) as a first-class
+artifact alongside the loop mechanics.
+
+---
+
 ## 6. Architectural decisions worth presenting
 
 Recorded as ADRs in `docs/decisions/`:
@@ -446,16 +557,17 @@ the lean context file, the model strategy, and the milestone-gate sentinel.
 
 | Metric | Value |
 |---|---|
-| Total commits | 115 |
-| Unattended loop turns | 50 |
+| Total commits | 158 |
+| Unattended loop turns | 50 (M1–M9, single loop) · M10 ran as the fan-out (5 tribe loops) then hands-on salvage + serial integration |
 | Models used | Sonnet 4.6 (M1/M2/M4/M5; M8 content) · Opus 4.8 (config-critical turns, M2-turn-1, M3 recovery, all of M6/M7/M9, M8 xyzgrid recovery) |
-| Tests | 426 passing / 40 Phase-0 stubs skipped |
+| Tests | 576 passing / 40 Phase-0 stubs skipped |
 | Pure rules / logic modules | 8 + system packages (`repop`, `season`, `quests`) + zones (`keep`, `wilderness` on xyzgrid, `caves`) |
 | Red commits reaching `main` | 0 |
-| Milestones complete | Phase 0, M0–M6 (systems) + M7 (Keep) + M8 (wilderness) + M9 (kobold vertical slice ⭐) |
-| Loop tasks needing human recovery | 3 (M3 debugging spiral §5.10; M8 xyzgrid stall+outage §5.12; M9 reboot-killed commit) — zero lost work all three |
+| Milestones complete | Phase 0, M0–M6 (systems) + M7 (Keep) + M8 (wilderness) + M9 (kobold vertical slice ⭐) + **M10 (all caves; fan-out tried then retired §3/§5.13–5.16)** |
+| Loop tasks needing human recovery | 3 (M3 §5.10; M8 §5.12; M9 reboot) — zero lost work. M10 added heavy *operator* thrash (§5.13–5.16), also zero lost work: the methodology absorbed it |
 | Specs the loop authored itself | 2 (M7 economy, M8 wilderness detail) |
-| Copilot-reviewed PRs | #1 (~13) · #2 (clean) · #3 (9, 1 real bug) · #4 (5, 2 real bugs) · #5 (1, integration bug) · #6 (clean, auto-merged) · #7 (5, no real bugs) |
+| Copilot-reviewed PRs | #1 (~13) · #2 (clean) · #3 (9, 1 real bug) · #4 (5, 2 real bugs) · #5 (1, integration bug) · #6 (clean) · #7 (5) · #8 (1) · #9 (1, real UTC bug) · #10 (3) · #11 (clean) · #12 (3, dark-flag flavor) · #13 (1, dead test assertion) · #14 (2) · #15 (1, stale doc) · #16 (1, **real test-isolation leak**) — Copilot earned its keep on the M10 salvage |
+| Fan-out experiment (M10) | 5 tribes built in parallel containers; **retired** — net-negative at this scale (§3 M10). Scripts kept as the experiment record |
 
 ---
 
@@ -498,9 +610,13 @@ build time for merge-conflict time. **Don't parallelize the loop.**
 mandates "modular zones, each its own package under `world/zones/` — the loop
 works one zone without breaking another." That is a *parallelization charter*.
 The systems layer (M4–M6: faction, henchmen, repop) is shared-state and stays
-serial; the content layer (M7–M11: zones, tribes) is embarrassingly parallel.
-**M10 is the extreme case — five tribes (orc/goblin/hobgoblin/bugbear/gnoll),
-each an independent package → five containers at once.**
+serial; the content layer (M7–M11: zones, tribes) is parallel *in principle*.
+**M10 was the extreme case — five tribes, five containers at once — and we
+actually built and ran the fan-out harness for it. Verdict: net-negative at this
+scale, retired** (see the M10 entry in §3 and §5.13–5.16). The parallelism worked
+mechanically, but the coordination tax — scope drift, an aggregator that
+re-shared a test file, per-tribe PRs + manual reviews, a fail-open merge gate —
+exceeded the wall-clock saved for five packages that each take one focused turn.
 
 So velocity comes from four moves, not from cloning the loop:
 
@@ -510,11 +626,12 @@ So velocity comes from four moves, not from cloning the loop:
 2. **Auto-merge when the independent reviewer is clean.** CI green + zero Copilot
    findings → merge without a human round-trip. Stop for a human only when a
    finding needs judgment.
-3. **Fan-out harness for the content layer.** From M7, give each container its
-   own **git worktree** + its own **`.ralph/` state dir** (today the runner
-   hard-codes one `/workspace/.ralph` with a single turn counter — two
-   containers on one bind-mount corrupt each other's loop state and git index).
-   Then run zones/tribes concurrently and merge as each lands.
+3. **~~Fan-out harness for the content layer.~~ TRIED AT M10 → RETIRED.** The
+   theory was sound (each container its own clone/worktree + its own `.ralph/`
+   state dir; run zones/tribes concurrently; merge as each lands) and the harness
+   *ran* — but the net was negative at this scale (§3 M10, §5.13–5.16). The
+   serial single-loop build is simpler and the human-gate cycle, not turn
+   throughput, was always the real bottleneck. Build content serially.
 4. **Match model tier to task *type*, from turn 1.** Opus-from-start on
    stateful/object-lifecycle milestones (M6's Scripts/timers/reset hooks) to
    avoid the stall-then-escalate waste (§5.10); Sonnet on pure-logic ones.
@@ -524,6 +641,14 @@ by parallelizing the loop — you parallelize the independent units the
 architecture was designed to produce.* The work to make that possible was front-
 loaded into the spec corpus and the modular-zone decision, long before a single
 line of zone code existed.
+
+**Coda (M10):** we proved you *can* parallelize those units — and then learned
+that *can* isn't *should*. At this project's scale the coordination tax of the
+fan-out (§3 M10) outweighed the parallel execution; the three moves that actually
+paid were the ones attacking *serial latency* — batch milestones, auto-merge on a
+clean reviewer, match model to task type — not the parallel-execution one. Reach
+for fan-out only when a single content unit is large enough that its build time
+dominates the per-unit coordination cost; five one-turn packages are not that.
 
 ---
 

@@ -131,12 +131,19 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 
 ## M10 — Remaining caves
 
-- [ ] Orc Vile Rune + Orc Decapitator (the playable war rivalry)
-- [ ] Goblins + ogre ally
-- [ ] Hobgoblins (King Nardo)
-- [ ] Bugbears
-- [ ] Gnolls + owlbear
-- [ ] Minotaur maze + Shrine passage; faction rivalries + repop halts fire under test (M10 exit)
+- [x] Orc Vile Rune + Orc Decapitator (the playable war rivalry) — PR #14
+- [x] Goblins + ogre ally — PR #11
+- [x] Hobgoblins (King Nardo) — PR #12
+- [x] Bugbears — PR #13
+- [x] Gnolls + owlbear — PR #15
+- [x] Minotaur maze + Shrine passage; faction rivalries + repop halts fire under test (M10 exit) — PR #16
+
+- [x] ⛔ MILESTONE GATE (M10 → M11 review) — **passed**: all caves built + the
+  cross-tribe rivalry/repop-halt integration test green (576 tests). Built via the
+  **fan-out harness, then retired** as net-negative at this scale — clean tribes
+  landed directly; orc/gnoll/minotaur were salvaged from the rogue orc loop's
+  complete+green branch and landed serially through review. Retrospective:
+  `docs/ralph-loop-experiment.md` §3 (M10) + §5.13–5.16. **M11 onward is serial.**
 
 ## M11 — Shrine
 
