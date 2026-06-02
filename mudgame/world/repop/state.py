@@ -170,6 +170,20 @@ class RepopState:
         """Clear the pending timer once the manager has re-instantiated a point."""
         self._respawn_at.pop(spawn_id, None)
 
+    def restock(self, zone: str) -> tuple[str, ...]:
+        """Mark every spawn point in ``zone`` alive again (wholesale restock, §5).
+
+        The Shrine's 24h reset brings the whole cult back at once rather than via
+        per-mob timers: every point whose id is namespaced ``"<zone>:..."`` has
+        its pending respawn cleared. Returns the restocked spawn ids (sorted) so
+        the manager can re-instantiate each, mirroring ``due_spawns``.
+        """
+        prefix = f"{zone}:"
+        restocked = tuple(sorted(sid for sid in self._points if sid.startswith(prefix)))
+        for spawn_id in restocked:
+            self._respawn_at.pop(spawn_id, None)
+        return restocked
+
     # ── Leadership halt (spec §3) ─────────────────────────────────────────────
 
     def _other_leader(self, faction: str, role: str | None) -> SpawnPoint | None:

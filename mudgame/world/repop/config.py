@@ -45,5 +45,9 @@ DESIGNATED_RIVAL: dict[str, str | None] = {
 # §5). The Shrine is not tribe-scoped; it resets wholesale on this cadence.
 SHRINE_RESET: int = 24 * 60 * 60
 
+# Zone id the 24h reset cycle restocks wholesale (spec §5). Matches
+# world/zones/shrine ZONE; spawn ids under this zone are marked alive together.
+SHRINE_ZONE: str = "shrine"
+
 # Server-wide broadcast fired when the Shrine resets (spec §5). Content knob.
 SHRINE_RESET_BROADCAST: str = "The cult regroups in the deep places."

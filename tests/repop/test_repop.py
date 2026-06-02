@@ -322,6 +322,46 @@ def test_shrine_resets_every_24h_with_broadcast() -> None:
     assert state.shrine_reset_due(now=2 * cfg.SHRINE_RESET) is True
 
 
+def test_restock_marks_a_zones_points_alive_wholesale() -> None:
+    """WHEN a zone is restocked THEN all its dead points come alive at once (M11 §5).
+
+    The Shrine's 24h reset brings the whole cult back together rather than via
+    per-mob timers. ``restock`` clears the pending respawn of every point under
+    the zone prefix and returns them, leaving other zones untouched.
+    """
+    state = RepopState()
+    shrine_a = _point(spawn_id="shrine:nave_evil:cult_acolyte:0", faction="cult")
+    shrine_b = _point(spawn_id="shrine:inner_sanctum:the_adept:0", faction="cult")
+    caves_pt = _point(spawn_id="caves:kobold:guardroom:kobold_warrior:0", faction="kobold")
+    for point in (shrine_a, shrine_b, caves_pt):
+        state.register(point)
+
+    # Kill all three; each schedules a respawn far in the future.
+    for point in (shrine_a, shrine_b, caves_pt):
+        state.notify_death(point.spawn_id, now=0.0)
+        assert state.is_pending(point.spawn_id)
+
+    restocked = state.restock("shrine")
+
+    # Both Shrine points are returned (sorted, like due_spawns) and alive again;
+    # the caves point is untouched.
+    assert restocked == tuple(sorted((shrine_a.spawn_id, shrine_b.spawn_id)))
+    assert not state.is_pending(shrine_a.spawn_id)
+    assert not state.is_pending(shrine_b.spawn_id)
+    assert state.is_pending(caves_pt.spawn_id)
+
+
+def test_restock_unknown_zone_is_a_noop() -> None:
+    """Restocking a zone with no registered points returns nothing and changes nothing."""
+    state = RepopState()
+    caves_pt = _point(spawn_id="caves:kobold:guardroom:kobold_warrior:0", faction="kobold")
+    state.register(caves_pt)
+    state.notify_death(caves_pt.spawn_id, now=0.0)
+
+    assert state.restock("shrine") == ()
+    assert state.is_pending(caves_pt.spawn_id)
+
+
 # ── M6 Task 5: season_manager reset ──────────────────────────────────────────
 
 

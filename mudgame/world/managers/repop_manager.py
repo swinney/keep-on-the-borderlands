@@ -172,17 +172,23 @@ class RepopManager(DefaultScript):
             state.schedule_shrine_reset(now)
             return
         if state.shrine_reset_due(now):
-            self._reset_shrine()
+            self._reset_shrine(state)
             state.mark_shrine_reset(now)
 
-    def _reset_shrine(self) -> None:
+    def _reset_shrine(self, state: RepopState) -> None:
         """Reset the Shrine wholesale and announce it server-wide (spec §5).
 
-        Restocking the Shrine's mobs and boss and clearing any in-progress
-        Shrine state operates on the Shrine zone, which lands in M11; until then
-        this delivers the canonical server-wide broadcast, mirroring how
-        ``_instantiate`` stands in for real spawning.
+        The cult does not trickle back on per-mob timers: every Shrine spawn
+        point is marked alive again at the 24h boundary (``restock``) and each is
+        re-instantiated, then the canonical server-wide broadcast fires. Live
+        re-instantiation rides the same no-op path as standard respawns until the
+        spawner is wired. Registered Shrine points only exist once the zone has
+        been registered (world build / season rebuild); with none registered the
+        restock is a no-op and only the broadcast fires, preserving prior
+        behaviour.
         """
+        for spawn_id in state.restock(cfg.SHRINE_ZONE):
+            self._instantiate(state.get(spawn_id))
         self._broadcast(cfg.SHRINE_RESET_BROADCAST)
 
     # ── Season-reset hooks (R6 §3.3; called by the season_manager) ────────────
