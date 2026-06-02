@@ -13,7 +13,7 @@ Built serially in four spec→test→implement slices (rooms+exits, mobs+boss,
 24h-reset wiring, altar→end_season), per docs/specs/zones/shrine.md. The
 rogue/unreviewed M11 draft in ../kotb-wt/m10-orc was NOT used.
 
-Next: once PR #NN is Copilot-reviewed and merged, start M12 — the disguised
+Next: once PR #17 is Copilot-reviewed and merged, start M12 — the disguised
 priest (priest_manager: seasonal rotation with no back-to-back repeat, clue
 assignment, the four detection paths, the spy quest chain + Caves ambush,
 exposure → the Shrine boss_lair boss, season reset). Build per

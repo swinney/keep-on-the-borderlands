@@ -152,7 +152,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] 24h reset wired to the M6 cycle
 - [x] Destructible altar → `end_season`; reset + season-end trigger tested (M11 exit)
 
-- [ ] ⛔ MILESTONE GATE (M11 → M12 review) — **PR open, awaiting Copilot review**:
+- [ ] ⛔ MILESTONE GATE (M11 → M12 review) — **PR #17 open, awaiting Copilot review**:
   Shrine zone built serially (16 rooms dark/no_recall, cult roster + the Adept
   boss, the 24h reset restocking the cult wholesale, the destructible altar
   firing `end_season`). Full suite green (619 passed), ruff + mypy --strict
