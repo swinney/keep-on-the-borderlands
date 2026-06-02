@@ -1,7 +1,7 @@
 """Gnoll lair exits — Cave G (Hrrl's gnolls + the Owlbear).
 
 Entrance link off the ravine's southern ledges (caves spec §ravine,
-``ravine_south`` holds mouths F, G, H).  Cave F (bugbear) uses east;
+``ravine_south`` holds mouths F, G, H).  Cave F (bugbear) attaches northeast;
 Cave G (gnoll) attaches south.
 
 Pure data — no Evennia import.
