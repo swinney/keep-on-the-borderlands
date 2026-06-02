@@ -1,16 +1,20 @@
 """Pure-data validation for the Shrine zone (zones spec docs/specs/zones/shrine.md).
 
-These tests boot no Evennia: they validate the static room/exit data only —
+These tests boot no Evennia: they validate the static room/exit/mob data only —
 the ~16-room temple layout, the dark/no_recall flag table, intra-zone
-connectivity, and the single inter-zone link back to the Caves minotaur maze.
+connectivity, the single inter-zone link back to the Caves minotaur maze, and
+the cult mob roster (the Adept boss + sentries, acolytes, and crypt undead).
 Build-time behaviour (idempotency, reset, season-end) lives in later slices.
 """
 
 from __future__ import annotations
 
+from world.factions import config as fac_cfg
+from world.repop import config as repop_cfg
 from world.zones import shrine
 from world.zones.records import ExitRecord, RoomRecord
 from world.zones.shrine.exits import REVERSE
+from world.zones.spawn_registry import spawn_points
 
 EXPECTED_ROOMS = {
     "shrine_gate",
@@ -167,3 +171,96 @@ def test_shrine_gate_links_back_to_minotaur_maze() -> None:
     assert exit_["from"] == "shrine_gate"
     assert exit_["to"] == "caves:minotaur_shrine_passage"
     assert exit_["dir"] == "u"
+
+
+# ── Mobs / spawns (the cult roster) ─────────────────────────────────────────
+
+
+def _mob_keys() -> set[str]:
+    return {m["key"] for m in shrine.MOB_TEMPLATES}
+
+
+def test_every_mob_is_cult_faction() -> None:
+    """The whole zone is faction ``cult`` (spec §Mobs/factions)."""
+    assert shrine.MOB_TEMPLATES, "the Shrine ships a cult roster from this slice on"
+    for mob in shrine.MOB_TEMPLATES:
+        assert mob["faction"] == "cult", f"{mob['key']} is not cult"
+
+
+def test_cult_faction_is_defined_and_at_war_with_the_keep() -> None:
+    """The cult faction exists and ``keep ↔ cult`` is a war-band tension (spec)."""
+    assert "cult" in fac_cfg.FACTIONS
+    pair = frozenset({"keep", "cult"})
+    band = fac_cfg.band_for(fac_cfg.INITIAL_RELATIONS[pair], fac_cfg.RELATION_LADDER)
+    assert band == "war"
+
+
+def test_mob_keys_unique() -> None:
+    """No two mob templates share a key."""
+    keys = [m["key"] for m in shrine.MOB_TEMPLATES]
+    assert len(keys) == len(set(keys))
+
+
+def test_the_adept_is_the_boss() -> None:
+    """The Adept is present and is the toughest mob (the standing endgame boss)."""
+    by_key = {m["key"]: m for m in shrine.MOB_TEMPLATES}
+    assert "the_adept" in by_key
+    adept = by_key["the_adept"]
+    assert adept["level"] == max(m["level"] for m in shrine.MOB_TEMPLATES)
+
+
+def test_no_leader_spawns() -> None:
+    """The cult resets wholesale on the 24h cycle, not the leadership halt.
+
+    No Shrine spawn is flagged ``is_leader`` — that mechanic is tribe-only
+    (chief AND shaman), and the cult has neither, so the halt never fires here.
+    """
+    for spawn in shrine.SPAWNS:
+        assert not spawn.get("is_leader"), f"{spawn['room']} spawns a leader"
+        assert spawn.get("leader_role") is None
+
+
+def test_spawns_reference_real_rooms_and_templates() -> None:
+    """Every spawn sits in a real Shrine room and names a real mob template.
+
+    ``spawn_points`` raises KeyError on an unknown template, so a clean
+    expansion proves template integrity; we additionally check the rooms.
+    """
+    room_keys = _room_keys()
+    template_keys = _mob_keys()
+    for spawn in shrine.SPAWNS:
+        assert spawn["room"] in room_keys, f"spawn in unknown room {spawn['room']}"
+        assert spawn["template"] in template_keys
+    # Does not raise -> every spawn template resolves to a faction.
+    points = spawn_points(shrine.ZONE, shrine.SPAWNS, shrine.MOB_TEMPLATES)
+    assert len(points) == sum(s["count"] for s in shrine.SPAWNS)
+    assert all(p.faction == "cult" for p in points)
+
+
+def test_the_adept_spawns_in_the_inner_sanctum() -> None:
+    """The Adept boss stands in the Inner Sanctum (spec §Mobs/factions)."""
+    sanctum = [s for s in shrine.SPAWNS if s["room"] == "inner_sanctum"]
+    assert any(s["template"] == "the_adept" for s in sanctum)
+
+
+def test_undead_haunt_the_crypts() -> None:
+    """Skeletons/zombies in the upper crypt, wights in the lower (spec table)."""
+    crypt_upper = {s["template"] for s in shrine.SPAWNS if s["room"] == "crypt_upper"}
+    crypt_lower = {s["template"] for s in shrine.SPAWNS if s["room"] == "crypt_lower"}
+    assert "shrine_skeleton" in crypt_upper or "shrine_zombie" in crypt_upper
+    assert "shrine_wight" in crypt_lower
+
+
+def test_boss_lair_is_unpopulated_until_exposure() -> None:
+    """``boss_lair`` holds no spawn in v1 — the exposed priest lands at M12."""
+    assert not [s for s in shrine.SPAWNS if s["room"] == "boss_lair"]
+
+
+def test_shrine_spawns_use_the_24h_reset_cadence() -> None:
+    """Shrine spawns respawn on the 24h cycle, not the 15-min standard.
+
+    The wholesale ``_reset_shrine`` path is the real restock; per-mob timers are
+    pinned to ``SHRINE_RESET`` so the cult never churns on the tribe cadence.
+    """
+    for spawn in shrine.SPAWNS:
+        assert spawn["respawn_seconds"] == repop_cfg.SHRINE_RESET
