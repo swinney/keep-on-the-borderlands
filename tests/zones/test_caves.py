@@ -17,7 +17,7 @@ import pytest
 from world.factions.config import FACTIONS
 from world.repop import config as repop_cfg
 from world.zones import caves
-from world.zones.caves import discovery, kobold
+from world.zones.caves import discovery, kobold, minotaur
 from world.zones.spawn_registry import spawn_points
 
 # Aggregated zone data (ravine hub + every discovered tribe), exposed off the
@@ -37,6 +37,17 @@ KOBOLD_LAIR_ROOMS: frozenset[str] = frozenset(
         "kobold_warren",
         "kobold_grotto",
         "kobold_den",
+    }
+)
+
+MINOTAUR_MAZE_ROOMS: frozenset[str] = frozenset(
+    {
+        "minotaur_mouth",
+        "minotaur_west_passage",
+        "minotaur_north_passage",
+        "minotaur_crossing",
+        "minotaur_heart",
+        "minotaur_shrine_passage",
     }
 )
 
@@ -70,6 +81,7 @@ def test_expected_rooms_present() -> None:
     keys = {r["key"] for r in ROOMS}
     assert keys >= RAVINE_ROOMS
     assert keys >= KOBOLD_LAIR_ROOMS
+    assert keys >= MINOTAUR_MAZE_ROOMS
 
 
 def test_no_dangling_intra_zone_exits() -> None:
@@ -86,6 +98,13 @@ def test_inter_zone_exit_targets_wilderness_ravine_mouth() -> None:
     inter = [e for e in EXITS if ":" in e["to"]]
     assert inter, "caves should expose an inter-zone exit to the wilderness"
     assert any(e["to"] == "wilderness:ravine_mouth" for e in inter)
+
+
+def test_inter_zone_exit_targets_shrine_gate() -> None:
+    inter = [e for e in EXITS if ":" in e["to"]]
+    assert any(e["to"] == "shrine:shrine_gate" for e in inter), (
+        "caves should expose an inter-zone exit from the minotaur maze to the Shrine"
+    )
 
 
 def test_lair_rooms_are_dark() -> None:
@@ -155,6 +174,11 @@ def test_leader_spawns_are_single_and_well_formed() -> None:
         if spawn.get("is_leader"):
             assert spawn.get("leader_role") in {"chief", "shaman"}
             assert spawn["count"] == 1, "a leader spawn must be a single mob"
+
+
+def test_minotaur_has_no_leader_spawns() -> None:
+    """The minotaur is a beast with no chief/shaman; R3 halt never fires for it."""
+    assert not any(s.get("is_leader") for s in minotaur.SPAWNS)
 
 
 # ---------------------------------------------------------------------------
@@ -361,9 +385,9 @@ def test_wilderness_to_caves_round_trip(built_wilderness_and_caves: None) -> Non
 
 def _kobold_leaders() -> tuple[Any, Any]:
     """The derived chief and shaman SpawnPoints for the kobold tribe."""
-    points = spawn_points("caves", kobold.SPAWNS, kobold.MOB_TEMPLATES)
-    chief = next(p for p in points if p.leader_role == "chief")
-    shaman = next(p for p in points if p.leader_role == "shaman")
+    points = spawn_points("caves", SPAWNS, MOB_TEMPLATES)
+    chief = next(p for p in points if p.faction == "kobold" and p.leader_role == "chief")
+    shaman = next(p for p in points if p.faction == "kobold" and p.leader_role == "shaman")
     return chief, shaman
 
 
@@ -441,6 +465,81 @@ def test_killing_both_kobold_leaders_halts_and_scouts(
         assert factions.get_tension("kobold", "orc_vol") > baseline_tension
     finally:
         room.delete()
+
+
+# ---------------------------------------------------------------------------
+# Engine tests — leadership halt + rival scouting for all tribes with rivals
+# (repop.md §3-4; M10 exit criterion — all caves rivalries fire under test)
+# ---------------------------------------------------------------------------
+
+
+def _leaders_for(faction_id: str) -> tuple[Any, Any]:
+    """Return (chief, shaman) SpawnPoints for *faction_id* from the aggregate."""
+    points = spawn_points("caves", SPAWNS, MOB_TEMPLATES)
+    chief = next(p for p in points if p.faction == faction_id and p.leader_role == "chief")
+    shaman = next(p for p in points if p.faction == faction_id and p.leader_role == "shaman")
+    return chief, shaman
+
+
+def _make_generic_mob(
+    spawn_id: str,
+    key: str,
+    faction_id: str,
+    room: Any,
+    *,
+    is_leader: bool = False,
+) -> Any:
+    from evennia.utils import create  # noqa: PLC0415
+
+    mob = create.create_object("typeclasses.npcs.Mob", key=key, location=room)
+    mob.db.spawn_id = spawn_id
+    mob.db.faction_id = faction_id
+    mob.db.is_leader = is_leader
+    return mob
+
+
+@pytest.mark.parametrize(
+    "faction_id,rival_id",
+    [
+        ("orc_vol", "orc_dec"),
+        ("orc_dec", "orc_vol"),
+        ("goblin", "gnoll"),
+        ("gnoll", "goblin"),
+        ("hobgoblin", "goblin"),
+        ("bugbear", "hobgoblin"),
+    ],
+)
+@pytest.mark.django_db
+def test_tribe_leadership_halt_and_rival_scout(
+    faction_id: str,
+    rival_id: str,
+    repop_and_factions: tuple[Any, Any],
+) -> None:
+    """Chief + shaman both down → tribe halts and the designated rival scouts in."""
+    repop, factions = repop_and_factions
+    chief_pt, shaman_pt = _leaders_for(faction_id)
+    baseline = factions.get_tension(faction_id, rival_id)
+    room_key = f"halt-room-{faction_id}"
+    from evennia.utils import create  # noqa: PLC0415
+
+    room = create.create_object("typeclasses.rooms.Room", key=room_key)
+    try:
+        chief_mob = _make_generic_mob(chief_pt.spawn_id, f"{faction_id}-chief", faction_id, room)
+        shaman_mob = _make_generic_mob(shaman_pt.spawn_id, f"{faction_id}-shaman", faction_id, room)
+        chief_mob.at_death()
+        shaman_mob.at_death()
+        # Tribe repop is frozen (repop.md §3).
+        halted_until = (repop.db.halted_until or {}).get(faction_id)
+        assert halted_until is not None and halted_until > time.time()
+        # Designated rival sends scouts into the empty lair (repop.md §4).
+        scouts = repop.db.scouts or {}
+        assert len(scouts) == repop_cfg.SCOUT_PARTY_SIZE
+        assert all(s["faction"] == rival_id for s in scouts.values())
+        assert all(s["scouting"] == faction_id for s in scouts.values())
+        # Leadership-broken tension spike applied between the pair (repop.md §4).
+        assert factions.get_tension(faction_id, rival_id) > baseline
+    finally:
+        _teardown_room(room)
 
 
 # ---------------------------------------------------------------------------
