@@ -20,6 +20,7 @@ from world.zones.records import ExitRecord, NpcRecord, RoomRecord
 ROOM_CATEGORY = "zone_room"
 EXIT_CATEGORY = "zone_exit"
 NPC_CATEGORY = "zone_npc"
+OBJECT_CATEGORY = "zone_object"
 FLAG_CATEGORY = "room_flag"
 ROOM_TYPECLASS = "typeclasses.rooms.Room"
 EXIT_TYPECLASS = "typeclasses.exits.Exit"
@@ -142,6 +143,34 @@ def build_npcs(zone: str, npcs: list[NpcRecord], placement: dict[str, str]) -> N
         inventory = record.get("inventory")
         if inventory is not None:
             npc.db.inventory = list(inventory)
+
+
+def _object_identity(zone: str, room_key: str, slug: str) -> str:
+    """Stable global identity for a placed zone object: ``"<zone>:<room>:<slug>"``."""
+    return f"{zone}:{room_key}:{slug}"
+
+
+def find_object(zone: str, room_key: str, slug: str) -> Any:
+    """Return the live placed object for ``zone:room_key:slug``, or None."""
+    return _find_tagged(_object_identity(zone, room_key, slug), OBJECT_CATEGORY)
+
+
+def build_object(zone: str, room_key: str, slug: str, typeclass: str, key: str) -> Any:
+    """Place a single unique object in a room (idempotent).
+
+    Returns the existing object if already placed, None if its room is not yet
+    built (deferred, mirroring build_exits/build_npcs), else the freshly created
+    object tagged with its stable identity so a rebuild never duplicates it.
+    """
+    existing = find_object(zone, room_key, slug)
+    if existing is not None:
+        return existing
+    room = _find_tagged(_zonekey(zone, room_key), ROOM_CATEGORY)
+    if room is None:
+        return None
+    obj = create.create_object(typeclass, key=key, location=room)
+    obj.tags.add(_object_identity(zone, room_key, slug), category=OBJECT_CATEGORY)
+    return obj
 
 
 def build_zone(zone: str, rooms: list[RoomRecord], exits: list[ExitRecord]) -> None:
