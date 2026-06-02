@@ -140,10 +140,14 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 
 - [x] ⛔ MILESTONE GATE (M10 → M11 review) — **passed**: all caves built + the
   cross-tribe rivalry/repop-halt integration test green (576 tests). Built via the
-  **fan-out harness, then retired** as net-negative at this scale — clean tribes
+  **fan-out harness, then set aside** — the parallelize-content *idea* is
+  promising, but this implementation was net-negative at M10 scale (more problems
+  than it solved), so it's serial-by-default now and the fan-out stays a
+  recommendable-but-not-auto-used option pending a reworked harness. Clean tribes
   landed directly; orc/gnoll/minotaur were salvaged from the rogue orc loop's
   complete+green branch and landed serially through review. Retrospective:
-  `docs/ralph-loop-experiment.md` §3 (M10) + §5.13–5.16. **M11 onward is serial.**
+  `docs/ralph-loop-experiment.md` §3 (M10) + §5.13–5.16. **M11+ build serially by
+  default.**
 
 ## M11 — Shrine
 

@@ -1,7 +1,9 @@
 M11 COMPLETE — paused at the M11 → M12 gate (PR open, awaiting Copilot review).
 
 The Shrine of Evil Chaos is built (the first serial milestone after the fan-out
-was retired): 16 temple rooms descending from the Black Gate to the Inner
+was set aside — promising idea, but the M10 implementation caused more problems
+than it solved; serial-by-default now, fan-out available to recommend, not
+auto-used): 16 temple rooms descending from the Black Gate to the Inner
 Sanctum, dark/no_recall flags per spec, the inter-zone link wired both ways to
 the Caves minotaur maze; the cult mob roster (sentries, acolytes, crypt undead,
 adept-acolyte casters) and the Adept boss; the 24h reset cycle now restocking
