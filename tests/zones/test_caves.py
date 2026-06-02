@@ -539,7 +539,7 @@ def test_tribe_leadership_halt_and_rival_scout(
         # Leadership-broken tension spike applied between the pair (repop.md §4).
         assert factions.get_tension(faction_id, rival_id) > baseline
     finally:
-        room.delete()
+        _teardown_room(room)
 
 
 # ---------------------------------------------------------------------------
