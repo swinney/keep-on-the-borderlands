@@ -40,7 +40,7 @@ ROOMS: list[RoomRecord] = [
         "desc": (
             "A rough chamber serving as the tribe's first line of defence. "
             "Torch-sockets are jammed into cracks in the walls, guttering "
-            "orange. A eastern passage leads to the warriors' barracks; the "
+            "orange. An eastern passage leads to the warriors' barracks; the "
             "main tunnel continues north deeper into the lair."
         ),
     },

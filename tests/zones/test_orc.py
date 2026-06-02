@@ -93,7 +93,6 @@ def test_orc_lair_rooms_are_dark() -> None:
 
 
 def test_no_dangling_orc_intra_zone_exits() -> None:
-    room_keys = {r["key"] for r in orc.ROOMS}
     all_rooms = {r["key"] for r in caves.ROOMS}
     for exit_ in orc.EXITS:
         src = exit_["from"]
@@ -102,7 +101,6 @@ def test_no_dangling_orc_intra_zone_exits() -> None:
             continue
         assert src in all_rooms, f"exit from unknown room {src!r}"
         assert dst in all_rooms, f"exit to unknown room {dst!r}"
-    _ = room_keys  # rooms used for the data-integrity check above
 
 
 def test_ravine_north_connects_to_both_orc_mouths() -> None:
