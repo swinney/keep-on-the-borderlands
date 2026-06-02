@@ -9,6 +9,7 @@ with a location in the game world (like Characters, Rooms, Exits).
 """
 
 from evennia.objects.objects import DefaultObject
+from evennia.utils import logger
 from evennia.utils.search import search_script
 
 
@@ -45,13 +46,23 @@ class Altar(DefaultObject):
             self.at_destruction()
 
     def at_destruction(self) -> None:
-        """Shatter the altar and end the season in triumph (spec R6/R9)."""
+        """Shatter the altar and end the season in triumph (spec R6/R9).
+
+        In a running game the season_manager always exists; if it is somehow
+        absent, log loudly rather than silently swallowing the season-end (which
+        would make the Shrine exit criterion fail with no diagnostic).
+        """
         self.db.destroyed = True
         if self.location is not None:
             self.location.msg_contents("The Altar of Evil Chaos shatters in a blast of unmaking!")
         results = search_script("season_manager")
         if results:
             results[0].end_season(reason="shrine_destroyed")
+        else:
+            logger.log_err(
+                "season_manager not found; the Altar of Evil Chaos was destroyed "
+                "but the season was NOT ended (shrine_destroyed trigger lost)"
+            )
 
 
 class Corpse(DefaultObject):

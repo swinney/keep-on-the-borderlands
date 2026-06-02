@@ -351,6 +351,26 @@ def test_restock_marks_a_zones_points_alive_wholesale() -> None:
     assert state.is_pending(caves_pt.spawn_id)
 
 
+def test_restock_only_revives_dead_points_never_the_living() -> None:
+    """Restock returns only currently-dead points, so a live spawner never dupes.
+
+    A point still alive at the 24h boundary is left untouched; only the pending
+    (dead) points are revived and returned (M11 §5; Copilot review on PR #17).
+    """
+    state = RepopState()
+    dead = _point(spawn_id="shrine:crypt_lower:shrine_wight:0", faction="cult")
+    alive = _point(spawn_id="shrine:nave_evil:cult_acolyte:0", faction="cult")
+    state.register(dead)
+    state.register(alive)
+    state.notify_death(dead.spawn_id, now=0.0)  # only this one is dead
+
+    restocked = state.restock("shrine")
+
+    assert restocked == (dead.spawn_id,)
+    assert not state.is_pending(dead.spawn_id)
+    assert not state.is_pending(alive.spawn_id)
+
+
 def test_restock_unknown_zone_is_a_noop() -> None:
     """Restocking a zone with no registered points returns nothing and changes nothing."""
     state = RepopState()

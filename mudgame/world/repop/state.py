@@ -171,15 +171,19 @@ class RepopState:
         self._respawn_at.pop(spawn_id, None)
 
     def restock(self, zone: str) -> tuple[str, ...]:
-        """Mark every spawn point in ``zone`` alive again (wholesale restock, §5).
+        """Revive every *dead* spawn point in ``zone`` at once (wholesale restock, §5).
 
-        The Shrine's 24h reset brings the whole cult back at once rather than via
-        per-mob timers: every point whose id is namespaced ``"<zone>:..."`` has
-        its pending respawn cleared. Returns the restocked spawn ids (sorted) so
-        the manager can re-instantiate each, mirroring ``due_spawns``.
+        The Shrine's 24h reset brings the cult back together rather than via
+        per-mob timers. Only points that are currently pending (dead) under the
+        ``"<zone>:..."`` namespace are revived: their respawn timer is cleared
+        and their id returned (sorted) for the manager to re-instantiate, exactly
+        like ``due_spawns``. Already-alive points are left untouched, so a future
+        live spawner re-creates only what is actually missing — never a duplicate.
         """
         prefix = f"{zone}:"
-        restocked = tuple(sorted(sid for sid in self._points if sid.startswith(prefix)))
+        restocked = tuple(
+            sorted(sid for sid in self._points if sid.startswith(prefix) and self.is_pending(sid))
+        )
         for spawn_id in restocked:
             self._respawn_at.pop(spawn_id, None)
         return restocked
