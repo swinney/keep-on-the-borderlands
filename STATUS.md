@@ -1,16 +1,23 @@
-M10 COMPLETE — paused at the M10 → M11 gate.
+M11 COMPLETE — paused at the M11 → M12 gate (PR open, awaiting Copilot review).
 
-All Caves of Chaos built: kobold (M9) + goblin, hobgoblin, bugbear, orc
-(Vile Rune + Decapitator), gnoll + owlbear, and the minotaur maze + Shrine
-passage. The cross-tribe rivalry/repop-halt integration test is green
-(576 tests passing, ruff + mypy --strict clean on main).
+The Shrine of Evil Chaos is built (the first serial milestone after the fan-out
+was set aside — promising idea, but the M10 implementation caused more problems
+than it solved; serial-by-default now, fan-out available to recommend, not
+auto-used): 16 temple rooms descending from the Black Gate to the Inner
+Sanctum, dark/no_recall flags per spec, the inter-zone link wired both ways to
+the Caves minotaur maze; the cult mob roster (sentries, acolytes, crypt undead,
+adept-acolyte casters) and the Adept boss; the 24h reset cycle now restocking
+the cult wholesale through the repop_manager; and the destructible Altar of Evil
+Chaos firing season_manager.end_season on its killing blow. 619 tests passing,
+ruff + mypy --strict clean.
 
-Built via the fan-out harness, which was then RETIRED as net-negative at this
-scale (see docs/ralph-loop-experiment.md §3 (M10) + §5.13–5.16). M11 onward is
-SERIAL — do not relaunch the fan-out.
+Built serially in four spec→test→implement slices (rooms+exits, mobs+boss,
+24h-reset wiring, altar→end_season), per docs/specs/zones/shrine.md. The
+rogue/unreviewed M11 draft in ../kotb-wt/m10-orc was NOT used.
 
-Next: M11 — Shrine (world/zones/shrine/ temple rooms + no_recall deep rooms,
-the Adept boss, 24h reset wired to M6, destructible altar -> end_season). Build
-per docs/specs/zones/shrine.md, serially. (A rogue/unreviewed M11 shrine draft
-exists in the ../kotb-wt/m10-orc clone as a reference only — build to spec, do
-not salvage blindly.)
+Next: once PR #17 is Copilot-reviewed and merged, start M12 — the disguised
+priest (priest_manager: seasonal rotation with no back-to-back repeat, clue
+assignment, the four detection paths, the spy quest chain + Caves ambush,
+exposure → the Shrine boss_lair boss, season reset). Build per
+docs/specs/disguised-priest.md, serially. boss_lair already waits empty in the
+Shrine for the exposed-priest boss.

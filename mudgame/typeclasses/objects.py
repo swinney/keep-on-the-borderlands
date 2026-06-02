@@ -9,6 +9,60 @@ with a location in the game world (like Characters, Rooms, Exits).
 """
 
 from evennia.objects.objects import DefaultObject
+from evennia.utils import logger
+from evennia.utils.search import search_script
+
+
+class Altar(DefaultObject):
+    """The Altar of Evil Chaos at the Shrine's heart (shrine spec R6/R9).
+
+    A destructible capstone. Reducing its hit points to zero shatters it and
+    ends the season early in triumph by firing the season_manager's
+    ``end_season(reason="shrine_destroyed")``. It cannot be picked up or moved.
+    Destruction is idempotent: once shattered, further blows do nothing (only
+    the first killing blow ends the season).
+    """
+
+    ALTAR_HP: int = 200
+
+    def at_object_creation(self) -> None:
+        super().at_object_creation()
+        self.db.hp = self.ALTAR_HP
+        self.db.destroyed = False
+        # The altar is a fixture of the Shrine — not lootable or movable.
+        self.locks.add("get:false()")
+
+    def apply_damage(self, amount: int) -> None:
+        """Take ``amount`` damage; shatter (and end the season) at 0 hp.
+
+        Mirrors the Character/Mob ``apply_damage`` signature so the combat path
+        can drive it uniformly. A blow against an already-shattered altar is a
+        no-op, so only the first destruction ends the season.
+        """
+        if self.db.destroyed:
+            return
+        self.db.hp = max(0, int(self.db.hp) - amount)
+        if int(self.db.hp) <= 0:
+            self.at_destruction()
+
+    def at_destruction(self) -> None:
+        """Shatter the altar and end the season in triumph (spec R6/R9).
+
+        In a running game the season_manager always exists; if it is somehow
+        absent, log loudly rather than silently swallowing the season-end (which
+        would make the Shrine exit criterion fail with no diagnostic).
+        """
+        self.db.destroyed = True
+        if self.location is not None:
+            self.location.msg_contents("The Altar of Evil Chaos shatters in a blast of unmaking!")
+        results = search_script("season_manager")
+        if results:
+            results[0].end_season(reason="shrine_destroyed")
+        else:
+            logger.log_err(
+                "season_manager not found; the Altar of Evil Chaos was destroyed "
+                "but the season was NOT ended (shrine_destroyed trigger lost)"
+            )
 
 
 class Corpse(DefaultObject):

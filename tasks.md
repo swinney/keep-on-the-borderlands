@@ -140,17 +140,29 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 
 - [x] ⛔ MILESTONE GATE (M10 → M11 review) — **passed**: all caves built + the
   cross-tribe rivalry/repop-halt integration test green (576 tests). Built via the
-  **fan-out harness, then retired** as net-negative at this scale — clean tribes
+  **fan-out harness, then set aside** — the parallelize-content *idea* is
+  promising, but this implementation was net-negative at M10 scale (more problems
+  than it solved), so it's serial-by-default now and the fan-out stays a
+  recommendable-but-not-auto-used option pending a reworked harness. Clean tribes
   landed directly; orc/gnoll/minotaur were salvaged from the rogue orc loop's
   complete+green branch and landed serially through review. Retrospective:
-  `docs/ralph-loop-experiment.md` §3 (M10) + §5.13–5.16. **M11 onward is serial.**
+  `docs/ralph-loop-experiment.md` §3 (M10) + §5.13–5.16. **M11+ build serially by
+  default.**
 
 ## M11 — Shrine
 
-- [ ] `world/zones/shrine/` temple rooms; `no_recall` deep rooms
-- [ ] The Adept boss
-- [ ] 24h reset wired to the M6 cycle
-- [ ] Destructible altar → `end_season`; reset + season-end trigger tested (M11 exit)
+- [x] `world/zones/shrine/` temple rooms; `no_recall` deep rooms
+- [x] The Adept boss
+- [x] 24h reset wired to the M6 cycle
+- [x] Destructible altar → `end_season`; reset + season-end trigger tested (M11 exit)
+
+- [ ] ⛔ MILESTONE GATE (M11 → M12 review) — **PR #17 open, awaiting Copilot review**:
+  Shrine zone built serially (16 rooms dark/no_recall, cult roster + the Adept
+  boss, the 24h reset restocking the cult wholesale, the destructible altar
+  firing `end_season`). Full suite green (619 passed), ruff + mypy --strict
+  clean. Built per `docs/specs/zones/shrine.md`; the rogue M11 draft in the orc
+  clone was *not* used. `boss_lair` is left unpopulated for the M12
+  disguised-priest exposure plot.
 
 ## M12 — Disguised priest
 
