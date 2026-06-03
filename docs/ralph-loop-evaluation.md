@@ -63,7 +63,7 @@ observation the threads interrogate.
 
 ---
 
-## Thread A — What did "unattended" actually buy? `[PULLED — findings below]`
+## Thread A — What did "unattended" actually buy? `[GRADUATED → ralph-framework-v1]`
 
 **Question:** Across M1–M11, tally wall-clock-saved-while-genuinely-away vs.
 operator-thrash + diagnosis-tax incurred. Does the unattended loop come out net
@@ -155,7 +155,7 @@ kernel directly.
 
 ---
 
-## Thread B — What is the irreducible methodology kernel? `[PULLED — findings below]`
+## Thread B — What is the irreducible methodology kernel? `[GRADUATED → ralph-framework-v1]`
 
 **Question:** Expressed as the *fewest rules* that still produce the quality, what
 survives? Original candidate kernel (revised by the pull below):
@@ -228,7 +228,7 @@ Decision owner: the user, on whether to lock this structure.
 
 ---
 
-## Thread C — Independent review may be a pillar, not a tip. `[PULLED — findings below]`
+## Thread C — Independent review may be a pillar, not a tip. `[GRADUATED → ralph-framework-v1]`
 
 **Question:** Should the framework promote independent review from operational
 tip to a named pillar? (B already answered *yes* on minimality — ③ is in the
@@ -296,7 +296,7 @@ the operational spec (#3) and the property-not-tool framing (#4) attached.
 
 ---
 
-## Thread D — Operator discipline as a first-class artifact. `[PULLED — findings below]`
+## Thread D — Operator discipline as a first-class artifact. `[GRADUATED → ralph-framework-v1]`
 
 **Question:** §5.16's meta-lesson — *resilience masks sloppiness* — means the
 harness hides a bad operator. Should the framework ship an operator-discipline
@@ -391,9 +391,13 @@ buys *cheaper* correctness not *more* (B). C's review is the only Layer-1 filter
 its kind (orthogonal, not stronger). D is Layer 1's shadow — the operator the
 commit-graph instrument cannot measure.
 
-**Next step when ready:** graduate this synthesis into an actual portable-framework
-spec (OpenSpec change), splitting the three layers into methodology (1, 3) vs
-project-specific deployment (2). Not yet locked — pending user direction.
+**GRADUATED (2026-06-03) → `ralph-framework-v1`.** This synthesis is now the
+portable-framework spec + playbook: OpenSpec change `ralph-framework-v1` (capability
+specs `convergence-machine` / `work-dispatch` / `operator-discipline`) and the
+human playbook under `docs/framework/`, split into methodology (layers 1, 3) vs
+project-specific deployment (layer 2). Threads A–D above are marked graduated; new
+evidence still accrues here and in the field log and flows to the playbook by
+reference (it cross-links, never duplicates).
 
 ---
 

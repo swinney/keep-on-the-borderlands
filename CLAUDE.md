@@ -143,7 +143,9 @@ result is the `b2-mud-v1-design` change under `openspec/`.
 
 Phase order, build order, the `PROMPT.md` template, the loop-runner script, and
 hard-earned operational tips: **`docs/ralph-loop.md`** §1–§6. The
-milestone-mapped build plan is `docs/build-plan.md`.
+milestone-mapped build plan is `docs/build-plan.md`. The portable, project-agnostic
+distillation of the method (three layers: convergence machine · dispatch +
+deployment · operator discipline) is **`docs/framework/`** (`ralph-framework-v1`).
 
 ## 6. Container Setup (Linux Host)
 

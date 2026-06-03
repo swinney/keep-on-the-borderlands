@@ -13,6 +13,11 @@ This site is the project's living documentation.
   story of building this with an unattended agent loop: what worked, what broke,
   and the patterns worth stealing. *(If you're here for the experiment, read
   this.)*
+- **[The Ralph-Loop Framework](framework/README.md)** — the portable, project-
+  agnostic playbook distilled from this build: the three-layer model (convergence
+  machine · dispatch + deployment · operator discipline) you can adopt on a new
+  project. *(If you want the reusable method, read this; start with the
+  [quickstart](framework/quickstart.md).)*
 - **[Architecture overview](architecture.md)** — Evennia structure, the pure
   rules core, the global-Script managers, persistence.
 - **[Build plan](build-plan.md)** — the milestone-mapped build order (M0–M14).

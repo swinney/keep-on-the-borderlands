@@ -33,11 +33,11 @@
 
 ## 4. Wire-in and validation
 
-- [ ] 4.1 Add a pointer to `docs/framework/` from `docs/index.md` and a one-line
+- [x] 4.1 Add a pointer to `docs/framework/` from `docs/index.md` and a one-line
   reference in `CLAUDE.md` §5 (Ralph Loop Strategy) so cold-start sessions find it
-- [ ] 4.2 Mark the four threads in `docs/ralph-loop-evaluation.md` as **graduated**
+- [x] 4.2 Mark the four threads in `docs/ralph-loop-evaluation.md` as **graduated**
   into `ralph-framework-v1`, closing the loop from evaluation → spec
-- [ ] 4.3 `openspec validate ralph-framework-v1` passes; the playbook's
+- [x] 4.3 `openspec validate ralph-framework-v1` passes; the playbook's
   methodology/deployment tags match the spec requirement tags exactly
-- [ ] 4.4 Final read-through: every framework claim traces to a field-log section or
+- [x] 4.4 Final read-through: every framework claim traces to a field-log section or
   evaluation thread; no locked CLAUDE.md §2/§3 decision is reopened
