@@ -84,7 +84,7 @@ unattended mode.
 > **catalytic and narrow-band, not a general accelerator.** It attacked a
 > *non-bottleneck* (turn throughput) while the real constraint was the human-gate
 > cycle. Presenting autonomy as a turnkey speedup would be the framework lying about
-> its own evidence (eval Thread A; field log Thread-A findings). Away-time is a real
+> its own evidence (eval Thread A, derived from field log §10 and §3 M10). Away-time is a real
 > operating condition, so the *gated opt-in mode* earns documentation — but it is not
 > the headline.
 

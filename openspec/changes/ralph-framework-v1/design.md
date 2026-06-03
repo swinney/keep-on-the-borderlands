@@ -53,7 +53,7 @@ criteria. The OpenSpec specs are the contract; the playbook is the usable artifa
 duplicates.** Each requirement cites its field-log section (e.g. the enum-vs-string
 catch → §5.9, the M10 thrash → §5.13–5.16). *Why:* duplication rots; the field log
 is the living source. *This is the framework eating its own dogfood* (single source
-of truth, an Layer-1 value).
+of truth, a Layer-1 value).
 
 **D4 — Autonomy wrapper is documented as opt-in, gated on four preconditions**
 (well-specified work · model matched from turn 1 · genuine operator away-time ·
