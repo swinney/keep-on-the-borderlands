@@ -167,7 +167,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 ## M12 — Disguised priest
 
 - [x] `priest_manager`: seasonal rotation with no back-to-back identity repeat
-- [ ] Clue assignment from the pool
+- [x] Clue assignment from the pool
 - [ ] Four detection paths: Detect Evil, Curate dialogue, witnessed nighttime act, planted object
 - [ ] Spy quest chain (3+ → Caves ambush)
 - [ ] Exposure → server-global event → spy flees to Shrine boss

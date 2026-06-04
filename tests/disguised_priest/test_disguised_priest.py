@@ -48,17 +48,53 @@ def test_first_assignment_may_be_any_pool_member() -> None:
     assert seen == set(cfg.POOL_IDS)
 
 
-# ── Later M12 slices unskip these as they land ────────────────────────────────
+# ── Clue assignment (spec §2 step 2, §7 behaviors 3-4) ────────────────────────
 
 
-@pytest.mark.skip(reason="M12 clue-assignment slice")
 def test_clue_set_drawn_and_attached() -> None:
     """WHEN a season begins THEN CLUE_COUNT distinct clues attach to the spy."""
+    state = PriestState()
+    state.assign_spy(Random(1))
+    clues = state.assign_clues(Random(1))
+    # The draw is CLUE_COUNT distinct clues, all from the pool, and is what the
+    # state now holds as the spy's attached set.
+    assert len(clues) == cfg.CLUE_COUNT
+    assert len(set(clues)) == cfg.CLUE_COUNT
+    assert set(clues) <= set(cfg.CLUE_IDS)
+    assert state.clue_ids == clues
 
 
-@pytest.mark.skip(reason="M12 clue-assignment slice")
+def test_clue_draw_is_unbiased_over_the_pool() -> None:
+    """WHEN clues are drawn across many seeds THEN every pool clue can appear."""
+    seen: set[str] = set()
+    for seed in range(100):
+        state = PriestState()
+        seen.update(state.assign_clues(Random(seed)))
+    assert seen == set(cfg.CLUE_IDS)
+
+
 def test_two_resets_yield_different_identity_and_clues() -> None:
     """WHEN two resets occur THEN identity differs and the clue set is re-drawn."""
+    rng = Random(20260604)
+    state = PriestState()
+    state.assign_spy(rng)
+    state.assign_clues(rng)
+    first_spy, first_clues = state.spy_id, state.clue_ids
+
+    state.assign_spy(rng)
+    new_clues = state.assign_clues(rng)
+
+    # Identity never repeats back-to-back, and the clue set is a fresh valid draw.
+    assert state.spy_id != first_spy
+    assert len(new_clues) == cfg.CLUE_COUNT
+    assert len(set(new_clues)) == cfg.CLUE_COUNT
+    assert set(new_clues) <= set(cfg.CLUE_IDS)
+    # The re-draw replaced the prior set rather than retaining it by reference.
+    assert state.clue_ids == new_clues
+    assert state.clue_ids != first_clues
+
+
+# ── Later M12 slices unskip these as they land ────────────────────────────────
 
 
 @pytest.mark.skip(reason="M12 detection-paths slice")
