@@ -22,19 +22,24 @@ of the screen is done by the unlogged-in "look" command.
 
 from django.conf import settings
 
-from evennia import utils
 
 CONNECTION_SCREEN = """
 |b==============================================================|n
- Welcome to |g{}|n, version {}!
+       |y Keep on the Borderlands |n — |rOpen Beta|n
+|b==============================================================|n
 
- If you have an existing account, connect to it by typing:
-      |wconnect <username> <password>|n
- If you need to create an account, type (without the <>'s):
-      |wcreate <username> <password>|n
+  |gKeep on the Borderlands|n is a persistent multiplayer MUD set in
+  the classic B2 adventure module (Old School Essentials rules).
 
- If you have spaces in your username, enclose it in quotes.
- Enter |whelp|n for more info. |wlook|n will re-show this screen.
+  Connect via telnet or the web client at the address above.
+
+  |wconnect <username> <password>|n  — log in to an existing account
+  |wcreate <username> <password>|n   — create a new account
+
+  Type |whelp|n for a list of commands.
+  Type |wlook|n to redisplay this screen.
+
+  Server: |g{}|n
 |b==============================================================|n""".format(
-    settings.SERVERNAME, utils.get_evennia_version("short")
+    settings.SERVERNAME
 )
