@@ -186,12 +186,38 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 
 ## M14 — Polish & scale
 
-- [ ] Economy / XP-pacing balance pass (target ~L10 in a 6-week season)
-- [ ] 50-player <100ms command-latency measurement (acceptance criterion)
+Buildable now (static config — no runtime needed):
+
 - [ ] Web-client theming + MOTD
-- [ ] Encounter-table tuning; all OpenSpec acceptance criteria demonstrably met (M14 exit)
+- [ ] ⛔ MILESTONE GATE (M14 polish slice → review) — write "M14 web theming complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
+
+**BLOCKED on the world-build/runtime layer** (see "Deferred follow-ups" → *World-build / runtime orchestrator*). These M14 acceptance criteria need a
+*playable, load-testable* server, which the no-op spawner / absent world-build
+precludes — the same root as the M13 quest-giver and spawning deferrals. Do NOT
+attempt until that layer exists:
+
+- [ ] Economy / XP-pacing balance pass (target ~L10 in a 6-week season) — needs playtest data from a running game
+- [ ] 50-player <100ms command-latency measurement (acceptance criterion) — needs a running server + load harness
+- [ ] Encounter-table tuning; all OpenSpec acceptance criteria demonstrably met (M14 exit) — needs the game runnable end-to-end
 
 ## Deferred follow-ups
+
+- [ ] **World-build / runtime orchestrator** ⭐ (the big one — gates true
+  "project complete"). The build has reached the boundary of what's possible
+  without a runtime that actually *instantiates the world*: mob/NPC spawning is a
+  deliberate no-op (registry/state tested only), so no zone is live-populated at
+  runtime. Everything that needs a *running, populated, load-testable* game
+  stacks behind this single missing layer:
+  - quest-giver resolution by explicit giver-key + tribe-chief turn-in design
+    (M13 F1) and the world-event hooks that set deed-completion flags (M13 F3);
+  - **M14 acceptance criteria**: economy/XP balance (needs playtest data), the
+    50-player <100ms latency measurement (needs a running server + load harness),
+    and "all acceptance criteria demonstrably met" (needs end-to-end runnability).
+  This is effectively a **new phase** (call it M15 / "world bring-up"): an
+  orchestrator that builds every zone, spawns mobs/NPCs/leaders from the
+  registries, wires givers, and exposes a bootable server — then the deferred
+  effect-hooks and M14 tuning/measurement become doable. Until it exists, M14 is
+  limited to static polish (web theming + MOTD).
 
 - [ ] **Spell disruption via combat-round timing** (combat.md §5): make `cast`
   *declare* a spell (set `spell_declaring`) and resolve it at end of round via
