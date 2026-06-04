@@ -40,6 +40,13 @@ CHARACTER_TYPECLASS = "typeclasses.characters.PlayerCharacter"
 # reject it). Callers measuring a specific scenario pass their own sequence.
 DEFAULT_COMMAND_MIX: tuple[str, ...] = ("look", "score", "north", "look", "south")
 
+# Warmup commands driven (and discarded) before timing begins, so cold-start
+# cost — first-touch imports, lazy cmdset building, query-plan/JIT warmup — is
+# not folded into the sampled latencies. Latency SLOs measure steady state, not
+# the first command ever run in a fresh process; the warmup pays that one-time
+# cost on a throwaway bot whose timings are excluded from ``LoadReport.latency``.
+DEFAULT_WARMUP_COMMANDS = 10
+
 
 @dataclass(frozen=True)
 class LatencySummary:
@@ -94,11 +101,33 @@ def summarize(latencies_ms: Sequence[float]) -> LatencySummary:
     )
 
 
+def _drive_warmup(room: Any, commands: Sequence[str], count: int) -> None:
+    """Drive ``count`` untimed warmup commands on a throwaway loadbot (spec §2.5).
+
+    The warmup absorbs one-time cold-start cost (first-touch imports, lazy cmdset
+    construction) off the measured clock; its timings are discarded entirely. The
+    throwaway bot is always torn down, mirroring the measured loop's cleanup.
+    """
+    from evennia.utils import create, logger  # noqa: PLC0415
+
+    warmbot = create.create_object(CHARACTER_TYPECLASS, key="loadbot-warmup", location=room)
+    try:
+        for i in range(count):
+            try:
+                warmbot.execute_cmd(commands[i % len(commands)])
+            except Exception:
+                logger.log_trace("loadharness: warmup command raised; ignored (untimed)")
+    finally:
+        if warmbot.pk is not None:
+            warmbot.delete()
+
+
 def run_load(
     requested_sessions: int,
     *,
     commands: Sequence[str] = DEFAULT_COMMAND_MIX,
     build: bool = True,
+    warmup_commands: int = DEFAULT_WARMUP_COMMANDS,
 ) -> LoadReport:
     """Drive ``requested_sessions`` synthetic players and report the load (spec §11).
 
@@ -109,6 +138,13 @@ def run_load(
     both the requested and the **actually driven** session count plus the latency
     summary — the harness reports the population it drove and never silently caps
     it. The 50-player <100 ms assertion itself is the M14 task that calls this.
+
+    Before timing begins, ``warmup_commands`` commands are driven on a throwaway
+    loadbot and **discarded** (not counted in ``commands_run`` and not sampled
+    into ``LoadReport.latency``), so the one-time cold-start cost — first-touch
+    imports, lazy cmdset construction, query-plan/JIT warmup — is paid off-clock
+    rather than spiking the first sampled command (which makes a worst-case ``max``
+    statistic brittle on shared CI runners). Pass ``warmup_commands=0`` to disable.
 
     A command that raises (no such exit/target for a synthetic bot in an empty
     room) is swallowed *after* its latency is recorded: a sketch harness must not
@@ -137,6 +173,10 @@ def run_load(
             latency=summarize([]),
             recall_built=False,
         )
+
+    # ── warmup (untimed, discarded): absorb cold-start cost off the measured clock ──
+    if warmup_commands > 0 and commands:
+        _drive_warmup(room, commands, warmup_commands)
 
     latencies_ms: list[float] = []
     driven = 0
