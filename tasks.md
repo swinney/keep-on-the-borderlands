@@ -221,24 +221,36 @@ Implementation slices (spec §14, each spec→test→impl, dependency order):
 - [x] M15 review-fix (PR #22, Copilot's 3 findings): (F1) `world/build/templates.py` — `all_templates`/`get_template` rebuild the registry on every call, so `build_all` re-scans every zone's `MOB_TEMPLATES` once per spawn point. Memoize the aggregated `template_key → MobRecord` map at module level and return a **copy** (prevent accidental mutation); keep the duplicate-key integrity check. (F2) `world/build/loadharness.py` — `run_load` proceeds when the `inner_bailey` recall room is missing, creating `location=None` loadbots yet still reporting `driven_sessions == requested_sessions`, masking a failed/partial build. Detect the missing recall room and report honestly (drive nothing, surface the unbuilt world in the `LoadReport`/raise) — spec §11 "report, not silently cap." (F3, real wiring gap not just docs) `typeclasses/npcs.py` — `Mob.at_death` only calls `repop_manager.notify_death(spawn_id)`; a scout carries `scout_id` (not `spawn_id`), so a killed scout never notifies the manager though `notify_scout_death` exists and the spawner docstring claims it does. Wire `at_death` to call `notify_scout_death(scout_id, ...)` when the mob is a scout, so scout kills update scouting state. Add/extend `tests/world_build` for all three; **run the FULL `pytest` suite** before committing.
 - [x] ⛔ MILESTONE GATE (M15 → review) — **passed**: world bring-up reviewed and merged via PR #22 (CI green; Copilot's 3 findings addressed — F1 template-registry memoization, F2 honest load-harness on unbuilt world, F3 real scout-death→notify_scout_death wiring gap; plus a review-caught full-suite regression fixed in `e28e213`). Built free-run by the loop (turns 67–79, Opus), spec-first with an operator spec-review gate. **PAUSED here before M16 per operator instruction.**
 
+## M16 — Acceptance & scale (the M14 criteria, unblocked by M15)
+
+M15 made the game **runnable + populated**, so the three M14 acceptance criteria
+that were blocked on a runtime are now doable. These are measurement/tuning/
+verification (not new content), so M16 is **spec-first** with an operator
+spec-review gate before implementation — the approach (how to measure latency,
+how to project/tune XP pacing, how to demonstrate acceptance) is the part worth
+reviewing.
+
+- [x] Spec: write `docs/specs/acceptance.md` — how M16 delivers the three M14 criteria against the live runtime: (1) **50-player <100ms latency** via the M15 load harness (`world.build.loadharness.run_load`) — drive 50 synthetic sessions through `build_all`'s populated world, assert a p95/max command latency target, honest report (`recall_built`); (2) **economy/XP-pacing balance** (`economy.md`) — a deterministic projection/simulation of a representative play arc reaching ~L10 in a 6-week season, tuning the economy/XP constants to hit it, pinned by a test; (3) **full acceptance verification** — enumerate the OpenSpec/build-plan acceptance criteria and demonstrate each is met (test-backed checklist). Define a `tests/acceptance/` plan. Per PROMPT.md, write the spec and stop — no implementation this turn.
+- [x] ⛔ MILESTONE GATE (M16 spec → review) — **passed**: spec reviewed and approved (operator-gated; commit c5e74ad). Honest about proxies — C8 is server-side per-command latency in-process (not a wire-level 50-socket test; telnet deferred per ADR 0005), pacing is a deterministic projection (not a 6-week playtest), verification is a test-existence checklist; respects locked decisions (no OSE-table retune, no new content) and bakes in guard ⑤ (escalate if a criterion is unmet, never fudge the budget). Referenced proof suites + pacing knobs verified to exist. Slices (spec §7) below.
+
+Implementation slices (spec §7, each spec→test→impl, dependency order):
+
+- [x] M16 slice 1 — XP-pacing projection: `world/rules/pacing.py` (pure, no Evennia) — a deterministic `project_arc(char_class, arc) → ArcResult` over the existing cores (`economy.secure_xp` treasure-as-XP + OSE kill-XP, resolved via `progression.level_for_xp`), with the representative-arc + target-band as **named constants**. Tune ONLY the economy/pacing knobs (`economy.py` sinks, `pacing.py` arc constants) to land the target band (~L9–L10 for a representative class over a 6-week season); never retune the OSE XP table. `tests/acceptance/test_xp_pacing.py` pins the final level + per-week curve (regression-guard) and asserts the OSE thresholds are untouched. Pure, Django-free. Per spec §3, §6.2-§6.3.
+- [x] M16 slice 2 — C8 latency measurement: `tests/acceptance/test_latency_50.py` (engine) drives `loadharness.run_load(50)` against `build_all()`'s populated world; asserts honesty (`recall_built`, `driven_sessions==50`, `commands_run==50*len(mix)`, populated world) AND `latency.p95_ms`/`max_ms` under named budgets set from an observed baseline with margin under 100ms. If the observed p95 exceeds 100ms the criterion is UNMET — escalate via `docs/questions.md`, do NOT weaken the budget (spec §2.4, CLAUDE.md §3). Per spec §2, §6.1.
+- [x] M16 slice 3 — criteria-coverage checklist: `tests/acceptance/test_criteria_coverage.py` encodes the §4 C1–C8 table as data (criterion → proof test node ids) and asserts each mapped proof test exists and is collectable (all eight mapped; a renamed/removed proof fails the test). References existing suites, does not re-run/duplicate them. The capstone declaring v1 acceptance demonstrably met. Per spec §4, §6.4.
+- [x] M16 fix (CI failure): `tests/acceptance/test_latency_50.py` FAILED on the CI runner — `assert max_ms < 90` got **141ms** (p95 passed at ~3.7ms locally; the single MAX sample spiked on GitHub's shared runner). Asserting *max* latency is brittle on noisy infra — latency SLOs are p50/p95/p99, never worst-case-ever. Fix robustly (NOT by fudging the budget): (a) add a **warmup** to `world.build.loadharness.run_load` (drive a few commands before timing, so cold-start/import/JIT cost isn't sampled) and exclude warmup from `LoadReport.latency`; (b) make **p95 the gating criterion assertion** (`p95_ms < P95_BUDGET_MS`, budget under the 100ms criterion with margin) — p95 ~3.7ms genuinely meets `<100ms`; (c) **report max but do not gate on a tight max budget** (drop `MAX_BUDGET_MS` or assert only a loose anti-hang sanity bound, documented), since max is infra-dominated. Update `docs/specs/acceptance.md` §2 to record the warmup + p95-as-criterion choice honestly. If p95 itself exceeds 100ms that is a real unmet criterion → escalate (CLAUDE.md §3). Verify the FULL suite locally, but note the real check is CI green on re-push (the failure is CI-runner-specific). Also: `tests/acceptance/conftest.py` joins the deferred "Django-free pure tests in mixed dirs" cross-cutting follow-up (Copilot PR #22 F2) — do NOT diverge one conftest now.
+- [ ] ⛔ MILESTONE GATE (M16 → review) — write "M16 acceptance complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
+
 ## Deferred follow-ups
 
-- [ ] **World-build / runtime orchestrator** ⭐ (the big one — gates true
-  "project complete"). The build has reached the boundary of what's possible
-  without a runtime that actually *instantiates the world*: mob/NPC spawning is a
-  deliberate no-op (registry/state tested only), so no zone is live-populated at
-  runtime. Everything that needs a *running, populated, load-testable* game
-  stacks behind this single missing layer:
-  - quest-giver resolution by explicit giver-key + tribe-chief turn-in design
-    (M13 F1) and the world-event hooks that set deed-completion flags (M13 F3);
-  - **M14 acceptance criteria**: economy/XP balance (needs playtest data), the
-    50-player <100ms latency measurement (needs a running server + load harness),
-    and "all acceptance criteria demonstrably met" (needs end-to-end runnability).
-  This is effectively a **new phase** (call it M15 / "world bring-up"): an
-  orchestrator that builds every zone, spawns mobs/NPCs/leaders from the
-  registries, wires givers, and exposes a bootable server — then the deferred
-  effect-hooks and M14 tuning/measurement become doable. Until it exists, M14 is
-  limited to static polish (web theming + MOTD).
+- [x] **World-build / runtime orchestrator** ⭐ — **DELIVERED by M15** (PR #22):
+  the boot orchestrator builds + spawns + serves a populated world, quest-givers
+  resolve by `giver_key` (M13 F1), world-event deed hooks fire (M13 F3), season
+  rebuild repopulates, and a headless boot + load-harness ship. Residual, still
+  open: the **M16 acceptance criteria** (above) and the carrier-object deed
+  triggers (delivery/escort/spy-package) + the live-spy `giver_key` stamping —
+  content-frozen seams whose hooks exist and are tested, awaiting their carrier
+  objects/relocation wiring (tracked below).
 
 - [ ] **Spell disruption via combat-round timing** (combat.md §5): make `cast`
   *declare* a spell (set `spell_declaring`) and resolve it at end of round via
@@ -247,13 +259,14 @@ Implementation slices (spec §14, each spec→test→impl, dependency order):
   this needs the round loop's declare→resolve phases. Re-enables the skipped
   `tests/combat/test_combat.py::test_damage_disrupts_unresolved_cast`.
 
-- [ ] **Pure tests run Django-free in mixed dirs** (Copilot PR #8): the
+- [ ] **Pure tests run Django-free in mixed dirs** (Copilot PR #8, #22 F2): the
   `scope="session", autouse=True` bootstrap in the engine conftests (`tests/quests`,
-  `tests/zones`, `tests/economy`) pulls `django_db_setup` into the *pure* tests in
-  those dirs, so running one in isolation boots Evennia (verified via
-  `pytest --setup-show`). Full-suite runs are unaffected. Fix consistently across
-  all seven engine conftests (gate the bootstrap to `@pytest.mark.django_db` tests)
-  rather than diverging one — a cross-cutting test-infra change, deferred from M9.
+  `tests/zones`, `tests/economy`, `tests/world_build`, `tests/acceptance`) pulls
+  `django_db_setup` into the *pure* tests in those dirs (e.g. `test_xp_pacing.py`),
+  so running one in isolation boots Evennia (verified via `pytest --setup-show`).
+  Full-suite runs are unaffected. Fix consistently across all engine conftests
+  (gate the bootstrap to `@pytest.mark.django_db` tests) rather than diverging one
+  — a cross-cutting test-infra change, deferred from M9.
 
 - [ ] **Quest runtime — giver resolution + deed-completion event hooks**
   (deferred from M13; depends on the spawner/world-build layer). Two pieces, both
