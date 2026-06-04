@@ -52,6 +52,17 @@ GIVERS: tuple[str, ...] = (
 SEASON_EXPOSE_PRIEST = "expose_priest"  # report the spy → global "exposed" event (R4)
 SEASON_END_SEASON = "end_season"  # destroy the Altar of Chaos → end_season (R6)
 
+# ── Evidence-gate grades (quests.md §3-§4, R4 §3) ────────────────────────────
+# An evidence-gated priest-plot quest names *how much* per-character evidence it
+# needs in ``evidence_min``. Report-grade (``c_expose_priest``) demands enough to
+# accuse the spy — one strong proof or the full clue count (priest
+# ``CLUE_SIGHTINGS_TO_REPORT``); the lower Curate grade (``cu_suspicions``) opens
+# at the priest ``CURATE_CLUE_THRESHOLD`` clue sightings. The engine evaluates the
+# named grade against the player's ``Evidence``; the pure state machine only ever
+# sees the resulting boolean, so this layer stays priest-agnostic.
+EVIDENCE_REPORT = "report"  # c_expose_priest: report-grade (Evidence.can_report)
+EVIDENCE_CURATE = "curate"  # cu_suspicions: ≥ CURATE_CLUE_THRESHOLD clue sightings
+
 # A repeatable bounty returns to ``available`` this long after a turn-in
 # (quests.md §1). 15 real minutes mirrors the standard repop window (repop.md §1)
 # — a tuning knob, not a locked decision.
@@ -127,7 +138,7 @@ class Quest:
     """A full quest record (quests.md §1).
 
     Prerequisites (``min_level``, ``prereq_quests``, ``standing_gates``,
-    ``requires_evidence``) gate availability; the completion-effect fields encode
+    ``evidence_min``) gate availability; the completion-effect fields encode
     the cross-system side effects summarised in quests.md §8. Both are data here —
     the state machine and the managers act on them.
     """
@@ -142,9 +153,11 @@ class Quest:
     min_level: int = 1
     prereq_quests: tuple[str, ...] = ()
     standing_gates: tuple[StandingGate, ...] = ()
-    # Gated on per-character priest evidence rather than level/quest (R4):
-    # c_expose_priest needs a valid proof, cu_suspicions ≥2 clue sightings.
-    requires_evidence: bool = False
+    # Gated on per-character priest evidence rather than level/quest (R4). The
+    # grade names *how much*: EVIDENCE_REPORT (c_expose_priest needs report-grade
+    # proof) vs EVIDENCE_CURATE (cu_suspicions opens at ≥2 clue sightings). ``None``
+    # means no evidence gate. The engine maps the grade to the player's Evidence.
+    evidence_min: str | None = None
     # ── completion effects (quests.md §8) ────────────────────────────────────
     harm_faction: str | None = None  # R2 quest_harm: standing - with this faction
     aid_faction: str | None = None  # R2 quest_aid: standing + with this faction
@@ -267,7 +280,7 @@ CATALOG: dict[str, Quest] = dict(
             title="Treachery in the Chapel",
             steps=(DeedStep(kind="report", detail="report the spy to the Castellan with proof"),),
             reward=QuestReward(gp=250, items=("the title 'Unmasker of the Cult'",)),
-            requires_evidence=True,
+            evidence_min=EVIDENCE_REPORT,
             season_global=SEASON_EXPOSE_PRIEST,
         ),
         Quest(
@@ -296,7 +309,7 @@ CATALOG: dict[str, Quest] = dict(
             steps=(DeedStep(kind="report", detail="hear the Curate's suspicions"),),
             reward=QuestReward(items=("a clue to the spy",)),
             # Gated on ≥2 clue sightings (R4), enforced via priest evidence.
-            requires_evidence=True,
+            evidence_min=EVIDENCE_CURATE,
             min_level=1,
         ),
         Quest(

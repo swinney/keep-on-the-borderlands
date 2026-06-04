@@ -22,7 +22,7 @@ import pytest
 from evennia.utils import create
 from evennia.utils.search import search_script
 
-from commands.quests import CmdTurnin
+from commands.quests import CmdTurnin, _meets_evidence
 from world.priest import config as priest_cfg
 from world.quests import state as qstate
 from world.quests.config import CATALOG
@@ -176,6 +176,47 @@ def test_expose_priest_is_evidence_gated(managers_and_player: tuple[Any, Any]) -
     player.db.priest_evidence = {"strong_proofs": [priest_cfg.PROOF_DETECT_EVIL]}
     assert cmd._fire_season_global(player, quest) is True
     assert priest.exposed is True
+
+
+@pytest.mark.django_db
+def test_evidence_grades_gate_per_quest(managers_and_player: tuple[Any, Any]) -> None:
+    """§9.2/§9.8 — WHEN evidence is partial THEN each quest applies its own bar.
+
+    The two evidence-gated quests do not share one global threshold: the Curate's
+    doubt (``cu_suspicions``) opens at the lower ``CURATE_CLUE_THRESHOLD`` clue
+    sightings while exposing the spy (``c_expose_priest``) demands report-grade
+    proof (one strong proof or ``CLUE_SIGHTINGS_TO_REPORT`` sightings).
+    """
+    _factions, player = managers_and_player
+    suspicions = CATALOG["cu_suspicions"]  # EVIDENCE_CURATE
+    expose = CATALOG["c_expose_priest"]  # EVIDENCE_REPORT
+
+    # No evidence → neither bar is met.
+    player.db.priest_evidence = {}
+    assert _meets_evidence(player, suspicions) is False
+    assert _meets_evidence(player, expose) is False
+
+    # Exactly the Curate threshold of distinct sightings → the Curate opens up,
+    # but that is still short of report-grade, so exposing stays gated.
+    assert priest_cfg.CURATE_CLUE_THRESHOLD == 2
+    assert priest_cfg.CLUE_SIGHTINGS_TO_REPORT == 3
+    player.db.priest_evidence = {"clue_sightings": ["black_candles", "hooded_meeting"]}
+    assert _meets_evidence(player, suspicions) is True
+    assert _meets_evidence(player, expose) is False
+
+    # A third distinct sighting reaches report-grade → both open.
+    player.db.priest_evidence = {
+        "clue_sightings": ["black_candles", "hooded_meeting", "midnight_errand"]
+    }
+    assert _meets_evidence(player, suspicions) is True
+    assert _meets_evidence(player, expose) is True
+
+    # A single strong proof is report-grade, so exposing opens — but the Curate
+    # gate is defined strictly on *clue sightings* (spec §3), which a lone proof
+    # does not supply, so her doubt stays shut.
+    player.db.priest_evidence = {"strong_proofs": [priest_cfg.PROOF_DETECT_EVIL]}
+    assert _meets_evidence(player, suspicions) is False
+    assert _meets_evidence(player, expose) is True
 
 
 @pytest.mark.django_db

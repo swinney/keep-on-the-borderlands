@@ -31,6 +31,7 @@ from world.priest.evidence import Evidence
 from world.priest.quests import SpyQuestLog, complete_spy_quest
 from world.quests import state as qstate
 from world.quests.config import (
+    EVIDENCE_CURATE,
     GIVERS,
     SEASON_END_SEASON,
     SEASON_EXPOSE_PRIEST,
@@ -80,9 +81,20 @@ def _player_evidence(caller: Any) -> Evidence:
     )
 
 
-def _has_evidence(caller: Any) -> bool:
-    """Whether the caller holds enough evidence to expose the spy (R4 §3)."""
-    return _player_evidence(caller).can_report
+def _meets_evidence(caller: Any, quest: Quest) -> bool:
+    """Whether the caller clears ``quest``'s per-quest evidence gate (R4 §3).
+
+    Evaluates the quest's ``evidence_min`` grade against the caller's gathered
+    evidence: ``EVIDENCE_CURATE`` opens at the Curate's lower clue threshold,
+    every other grade (``EVIDENCE_REPORT``) demands report-grade proof. A quest
+    with no evidence gate (``evidence_min is None``) clears vacuously.
+    """
+    if quest.evidence_min is None:
+        return True
+    evidence = _player_evidence(caller)
+    if quest.evidence_min == EVIDENCE_CURATE:
+        return evidence.meets_curate_threshold
+    return evidence.can_report
 
 
 def _match_offered(arg: str, giver: str) -> Quest | None:
@@ -119,13 +131,17 @@ class CmdQuests(Command):  # type: ignore[misc]
             return
         log = _quest_log(caller)
         level = _level(caller)
-        has_evidence = _has_evidence(caller)
         now = time.time()
         lines = ["Quests offered here:"]
         for quest in quests_from(giver):
             entry = log.get(quest.id)
             state = qstate.status(
-                quest, entry, level=level, now=now, log=log, has_evidence=has_evidence
+                quest,
+                entry,
+                level=level,
+                now=now,
+                log=log,
+                has_evidence=_meets_evidence(caller, quest),
             )
             lines.append(f"  {quest.title} [{quest.id}] - {state}")
             if state == qstate.ACTIVE and entry is not None:
@@ -174,7 +190,7 @@ class CmdAccept(Command):  # type: ignore[misc]
         log = _quest_log(caller)
         entry = log.get(quest.id)
         level = _level(caller)
-        has_evidence = _has_evidence(caller)
+        has_evidence = _meets_evidence(caller, quest)
         now = time.time()
         if not qstate.can_accept(
             quest, entry, level=level, now=now, log=log, has_evidence=has_evidence

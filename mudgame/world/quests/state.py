@@ -113,9 +113,11 @@ def prereqs_met(
 
     Gates, all of which must clear: the character's ``level`` meets ``min_level``;
     each ``prereq_quests`` id is stored ``complete`` in ``log``; each
-    ``standing_gates`` faction is at non-hostile (or better) standing; and, for the
-    evidence-gated priest-plot quests, ``has_evidence`` is true. ``log``/``standings``
-    default to empty, so an unsupplied prerequisite reads as unmet.
+    ``standing_gates`` faction is at non-hostile (or better) standing; and, for a
+    quest carrying an ``evidence_min`` grade, ``has_evidence`` is true. The caller
+    evaluates that grade against the player's evidence and passes the result here,
+    so this pure layer stays priest-agnostic. ``log``/``standings`` default to
+    empty, so an unsupplied prerequisite reads as unmet.
     """
     if level < quest.min_level:
         return False
@@ -127,7 +129,7 @@ def prereqs_met(
     standing_map = standings or {}
     if not all(standing_ok(gate, standing_map) for gate in quest.standing_gates):
         return False
-    return not (quest.requires_evidence and not has_evidence)
+    return not (quest.evidence_min is not None and not has_evidence)
 
 
 def status(

@@ -19,6 +19,8 @@ from world.quests.config import (
     CATALOG,
     CATALOG_IDS,
     CURATE,
+    EVIDENCE_CURATE,
+    EVIDENCE_REPORT,
     GIVERS,
     GOBLIN_CHIEF,
     GUILDMASTER,
@@ -145,9 +147,14 @@ def test_tribe_chief_quests_gate_on_non_hostile_standing() -> None:
     assert CATALOG["t_gob_vs_gnoll"].standing_gates[0].faction == "goblin"
 
 
-def test_evidence_gated_quests_are_flagged() -> None:
-    assert CATALOG["c_expose_priest"].requires_evidence is True
-    assert CATALOG["cu_suspicions"].requires_evidence is True
+def test_evidence_gated_quests_declare_their_grade() -> None:
+    # The two evidence-gated quests carry distinct grades (R4 §3): exposing the
+    # spy needs report-grade proof, the Curate's doubt opens at the lower bar.
+    assert CATALOG["c_expose_priest"].evidence_min == EVIDENCE_REPORT
+    assert CATALOG["cu_suspicions"].evidence_min == EVIDENCE_CURATE
+    # Every other quest is ungated.
+    gated = {qid for qid, q in CATALOG.items() if q.evidence_min is not None}
+    assert gated == {"c_expose_priest", "cu_suspicions"}
 
 
 # ── completion effects (quests.md §8) ────────────────────────────────────────
