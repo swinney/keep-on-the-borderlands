@@ -228,5 +228,24 @@ def test_run_load_reports_driven_population(built_world: orchestrator.BuildSumma
     assert report.driven_sessions == 3
     assert report.commands_run == 3 * len(loadharness.DEFAULT_COMMAND_MIX)
     assert report.latency.samples == report.commands_run
+    assert report.recall_built is True
     # The harness tore down its own synthetic sessions — no loadbots linger.
+    assert not search_object("loadbot-0")
+
+
+@pytest.mark.django_db
+def test_run_load_reports_unbuilt_world_honestly() -> None:
+    """With no recall room (unbuilt world) the harness drives nothing, reports it (§11)."""
+    # No built_world fixture: there is no 'inner_bailey' recall point to connect to.
+    assert not search_object_by_tag("inner_bailey")
+
+    report = loadharness.run_load(5, build=False)
+
+    # It does not silently cap to a full run: it surfaces the unbuilt world.
+    assert report.recall_built is False
+    assert report.requested_sessions == 5
+    assert report.driven_sessions == 0
+    assert report.commands_run == 0
+    assert report.latency.samples == 0
+    # No location-less loadbots were spawned.
     assert not search_object("loadbot-0")

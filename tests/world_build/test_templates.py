@@ -81,3 +81,20 @@ def test_aggregate_merges_distinct_sources() -> None:
     """Distinct keys from several sources merge into one map."""
     merged = templates._aggregate([[_mob("a")], [_mob("b"), _mob("c")]])
     assert set(merged) == {"a", "b", "c"}
+
+
+def test_registry_is_memoized() -> None:
+    """The aggregated map is built once and cached (no per-call re-scan)."""
+    first = templates._registry()
+    second = templates._registry()
+    # Same object identity proves the scan ran once, not once per call.
+    assert first is second
+
+
+def test_all_templates_returns_a_defensive_copy() -> None:
+    """Mutating the returned map never corrupts the shared cache."""
+    snapshot = templates.all_templates()
+    snapshot.clear()
+    # A fresh call still yields the full corpus — the cache was untouched.
+    assert templates.all_templates()
+    assert "kobold_chief" in templates.all_templates()

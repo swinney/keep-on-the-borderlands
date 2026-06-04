@@ -276,3 +276,36 @@ def test_manager_retreat_scout_delegates_to_despawn(room_factory: Any, repop_man
     repop_manager._retreat_scout(scout)
 
     assert not [o for o in room.contents if getattr(o, "IS_MOB", False)]
+
+
+@pytest.mark.django_db
+def test_scout_death_notifies_manager(room_factory: Any, repop_manager: Any) -> None:
+    """A killed scout reports via notify_scout_death — not the respawn path (§4).
+
+    The spawner tags the instance with ``scout_id`` (no ``spawn_id``); ``Mob.at_death``
+    must route a scout kill to ``notify_scout_death`` so scouting state updates (a
+    scout does not respawn), closing the M15 F3 wiring gap.
+    """
+    from dataclasses import asdict  # noqa: PLC0415
+
+    from evennia.utils import create  # noqa: PLC0415
+
+    room = room_factory(CHIEF_ROOM)
+    scout = Scout(
+        scout_id="orc_vol_scout_kobold_0", faction="orc_vol", room=CHIEF_ROOM, scouting="kobold"
+    )
+    # Seed the manager's scouting state so notify_scout_death can resolve + clear it.
+    repop_manager.db.scouts = {scout.scout_id: asdict(scout)}
+    mob = spawner.spawn_scout(scout, rng=random.Random(3))
+    assert mob.location == room
+    assert mob.db.scout_id == scout.scout_id and mob.db.spawn_id is None
+    killer = create.create_object("typeclasses.characters.PlayerCharacter", key="raider")
+    mob.db.last_attacker = killer
+    try:
+        mob.at_death()
+
+        # notify_scout_death fired: the scout is cleared from scouting state and
+        # does not respawn (the spawn-point notify_death path was never taken).
+        assert scout.scout_id not in (repop_manager.db.scouts or {})
+    finally:
+        killer.delete()

@@ -53,12 +53,20 @@ class LatencySummary:
 
 @dataclass(frozen=True)
 class LoadReport:
-    """What a load run actually drove — requested vs driven, never silently capped."""
+    """What a load run actually drove — requested vs driven, never silently capped.
+
+    ``recall_built`` is ``False`` when the world has no recall room to connect
+    synthetic players to (an unbuilt or partial build): the harness then drives
+    nothing and reports ``driven_sessions == 0`` rather than spawning location-less
+    loadbots and falsely claiming it served the requested load (spec §11 "report,
+    not silently cap").
+    """
 
     requested_sessions: int
     driven_sessions: int
     commands_run: int
     latency: LatencySummary
+    recall_built: bool = True
 
 
 def _percentile(ordered: Sequence[float], pct: float) -> float:
@@ -115,6 +123,20 @@ def run_load(
 
     recall_matches = search_object_by_tag("inner_bailey")
     room = recall_matches[0] if recall_matches else None
+    if room is None:
+        # No recall point means the world is unbuilt or only partially built;
+        # location-less loadbots would measure nothing yet read as a full run.
+        # Surface the failed build honestly instead of silently capping (spec §11).
+        logger.log_err(
+            "loadharness: no recall room ('inner_bailey') — world unbuilt; driving 0 sessions"
+        )
+        return LoadReport(
+            requested_sessions=requested_sessions,
+            driven_sessions=0,
+            commands_run=0,
+            latency=summarize([]),
+            recall_built=False,
+        )
 
     latencies_ms: list[float] = []
     driven = 0

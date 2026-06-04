@@ -54,6 +54,10 @@ class Mob(ObjectParent, DefaultCharacter):
         # death is reported to the repop_manager so the tribe respawns and the
         # leadership halt + rival scouting can fire (repop.md §3-4).
         self.db.spawn_id = None
+        # Set when this mob is a rival scouting-party instance (repop.md §4); its
+        # death reports via notify_scout_death instead of the respawn path — a
+        # killed scout does not respawn, and credit goes to its rival faction.
+        self.db.scout_id = None
         # Set on a chief/NPC who also gives quests (world-build §8, M13 F1); a
         # giver-key from world.quests.config.GIVERS. None for the rank-and-file.
         self.db.giver_key = None
@@ -134,13 +138,26 @@ class Mob(ObjectParent, DefaultCharacter):
             player.db.quests = log
 
     def _report_death_to_repop(self) -> None:
-        """Notify the repop_manager of this mob's death, if it is a spawn point."""
-        spawn_id = self.db.spawn_id
-        if not spawn_id:
-            return
+        """Notify the repop_manager of this mob's death (spawn point or rival scout).
+
+        A spawn-point instance (``spawn_id``) schedules a respawn and may fire the
+        leadership halt (repop.md §3). A rival-scout instance (``scout_id``) instead
+        notifies ``notify_scout_death`` — the scout does not respawn, and the kill
+        credits its rival faction's standing for the responsible player (repop.md §4).
+        """
         results = search_script("repop_manager")
-        if results:
-            results[0].notify_death(str(spawn_id))
+        if not results:
+            return
+        manager = results[0]
+        spawn_id = self.db.spawn_id
+        if spawn_id:
+            manager.notify_death(str(spawn_id))
+            return
+        scout_id = self.db.scout_id
+        if scout_id:
+            player = self._responsible_player()
+            player_key = str(getattr(player, "id", "") or "") or None
+            manager.notify_scout_death(str(scout_id), player_key)
 
     def apply_damage(self, amount: int) -> None:
         hp = self.traits.hp  # type: ignore[union-attr]
