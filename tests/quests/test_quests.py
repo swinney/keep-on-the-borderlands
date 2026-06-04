@@ -116,6 +116,25 @@ def test_rewards_grant_on_completion(managers_and_player: tuple[Any, Any]) -> No
 
 
 @pytest.mark.django_db
+def test_item_reward_delivers_items(managers_and_player: tuple[Any, Any]) -> None:
+    """§9.3 — WHEN an item-reward quest is turned in THEN its items are delivered.
+
+    ``cu_holy_water`` rewards three vials of holy water; the items land on the caller's
+    ``quest_items`` inventory list. A second item-reward turn-in appends rather
+    than overwriting.
+    """
+    _factions, player = managers_and_player
+    assert player.db.quest_items in (None, [])
+    holy_water = CATALOG["cu_holy_water"]
+    assert holy_water.reward.items == ("holy water", "holy water", "holy water")
+    CmdTurnin()._apply_reward(player, holy_water)
+    assert player.db.quest_items == ["holy water"] * 3
+    # A further item reward appends to the existing inventory.
+    CmdTurnin()._apply_reward(player, CATALOG["g_minotaur"])  # map to the Shrine
+    assert player.db.quest_items == ["holy water"] * 3 + ["a map to the Shrine"]
+
+
+@pytest.mark.django_db
 def test_completion_applies_faction_standing(managers_and_player: tuple[Any, Any]) -> None:
     """§9.4 — WHEN an aiding/harming quest is turned in THEN standing shifts accordingly."""
     factions, player = managers_and_player

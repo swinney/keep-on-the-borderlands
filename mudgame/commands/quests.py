@@ -251,11 +251,21 @@ class CmdTurnin(Command):  # type: ignore[misc]
         return True
 
     def _apply_reward(self, caller: Any, quest: Quest) -> None:
-        """Pay the gp/xp reward and fire the quest's faction effects (R2)."""
+        """Pay the gp/xp/item reward and fire the quest's faction effects (R2).
+
+        Coin and XP go straight onto the character; ``quest.reward.items`` (holy
+        water, the Shrine map, the relic — quests.md §9.3) are appended to the
+        caller's ``quest_items`` inventory list so an item-reward quest actually
+        delivers its items on turn-in.
+        """
         if quest.reward.gp:
             caller.db.coin = int(caller.db.coin or 0) + quest.reward.gp
         if quest.reward.xp:
             caller.traits.xp.current = int(caller.traits.xp.current) + quest.reward.xp
+        if quest.reward.items:
+            items = list(caller.db.quest_items or [])
+            items.extend(quest.reward.items)
+            caller.db.quest_items = items
         self._apply_faction_effects(caller, quest)
 
     def _apply_faction_effects(self, caller: Any, quest: Quest) -> None:
