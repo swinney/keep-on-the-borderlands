@@ -1,3 +1,3 @@
-M15 implementation in progress — loop building the world-build slices 1–6
-(templates → spawner → orchestrator → giver-key → deed hooks → season-rebuild +
-boot/load harness) before the M15 review gate. Spec approved (docs/specs/world-build.md).
+M15 regression fix in progress — loop making the M11 shrine altar test resilient
+to the now-real end_season world-rebuild (full-suite regression caught in review)
+before the M15 review gate.
