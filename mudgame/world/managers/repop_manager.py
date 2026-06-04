@@ -104,6 +104,23 @@ class RepopManager(DefaultScript):
         """
         self.register_all(spawn_points(zone, spawns, mob_templates))
 
+    def populate(self) -> int:
+        """Materialise one live mob per registered spawn point (world-build §4.4).
+
+        The initial population pass the boot orchestrator runs after every zone's
+        spawns are registered. Delegates each materialisation to the spawner,
+        which is idempotent (skips a point that already has a live instance) and
+        room-deferred (a not-yet-built room yields no mob), so this is safe to
+        re-run on every boot and from the season rebuild. Returns the number of
+        registered points that now stand as a live mob.
+        """
+        state = self._repop_state()
+        count = 0
+        for point in state.spawn_points():
+            if spawner.spawn_mob(point) is not None:
+                count += 1
+        return count
+
     # ── Death / respawn API ───────────────────────────────────────────────────
 
     def notify_death(self, spawn_id: str, now: float | None = None) -> None:

@@ -16,4 +16,11 @@ does what you expect it to.
 
 
 def at_initial_setup():
-    pass
+    """Build and populate the world at first boot (world-build spec §4, §11).
+
+    Delegates to the boot orchestrator, which is idempotent end to end, so a
+    later operator-triggered rebuild on the same DB re-runs the same path safely.
+    """
+    from world.build.orchestrator import build_all
+
+    build_all()
