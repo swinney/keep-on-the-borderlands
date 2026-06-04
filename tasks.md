@@ -205,6 +205,19 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
   all seven engine conftests (gate the bootstrap to `@pytest.mark.django_db` tests)
   rather than diverging one — a cross-cutting test-infra change, deferred from M9.
 
+- [ ] **Tribe-chief quest givers — no accept/turn-in path** (deferred from M13):
+  the four `t_*` quests (`t_vol_vs_dec`, `t_dec_vs_vol`, `t_gob_vs_gnoll`,
+  `t_bribe_ogre`) are given by tribe chiefs, but chiefs are plain `Mob`s
+  (`leader_role="chief"`), not service-NPC givers, so `commands.quests._giver_here`
+  can't resolve them — and chiefs aren't live-spawned anyway (project-wide no-op
+  spawner). Their completion *effects* (`tension_pair`, `aid_faction`,
+  `breaks_alliance`) ARE wired into the turn-in path and tested at the wiring
+  level (`tests/quests/test_quests.py`), but the end-to-end accept→turn-in flow
+  needs a design decision (how/where you turn a quest in to a chief you may also
+  be there to kill) and depends on the spawner/world-build work. Wire once that
+  lands. Also correct the stale "24 quests" prose in `docs/specs/quests.md` and
+  `docs/build-plan.md` — the §2–§7 tables enumerate **26**, which is what M13 wired.
+
 ---
 
 When every box above is checked, the loop writes "RALPH: project complete" to

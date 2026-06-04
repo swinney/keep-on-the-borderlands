@@ -23,9 +23,12 @@ import time
 from typing import Any, ClassVar
 
 from evennia.commands.command import Command
+from evennia.utils import logger
 from evennia.utils.search import search_script
 
+from world.priest.config import CULT_FACTION_ID
 from world.priest.evidence import Evidence
+from world.priest.quests import SpyQuestLog, complete_spy_quest
 from world.quests import state as qstate
 from world.quests.config import (
     GIVERS,
@@ -232,15 +235,60 @@ class CmdTurnin(Command):  # type: ignore[misc]
         return True
 
     def _apply_reward(self, caller: Any, quest: Quest) -> None:
-        """Pay the gp/xp reward and apply the completion standing shift (R2)."""
+        """Pay the gp/xp reward and fire the quest's faction effects (R2)."""
         if quest.reward.gp:
             caller.db.coin = int(caller.db.coin or 0) + quest.reward.gp
         if quest.reward.xp:
             caller.traits.xp.current = int(caller.traits.xp.current) + quest.reward.xp
+        self._apply_faction_effects(caller, quest)
+
+    def _apply_faction_effects(self, caller: Any, quest: Quest) -> None:
+        """Fire a completed quest's faction standing and relation effects (R2).
+
+        ``harm_faction``/``aid_faction`` shift the player's standing with a
+        faction (quests.md §8.4); ``tension_pair`` escalates a rivalry toward war
+        (§8.5); ``breaks_alliance`` dissolves a pair's alliance (§8.6, the
+        bribe-the-ogre quest). No-op when the faction_manager is not live.
+        """
+        managers = search_script("faction_manager")
+        if not managers:
+            return
+        fm = managers[0]
+        player_key = str(caller.id)
         if quest.harm_faction:
-            managers = search_script("faction_manager")
-            if managers:
-                managers[0].apply_quest_harm(quest.harm_faction, str(caller.id))
+            fm.apply_quest_harm(quest.harm_faction, player_key)
+        if quest.aid_faction:
+            fm.apply_quest_aid(quest.aid_faction, player_key)
+        if quest.tension_pair:
+            fm.apply_quest_aid_vs(*quest.tension_pair)
+        if quest.breaks_alliance:
+            fm.apply_break_alliance(*quest.breaks_alliance)
+
+    def _advance_cult_chain(self, caller: Any, quest: Quest) -> None:
+        """Advance the disguised-priest cult chain on turn-in of an aids_cult quest.
+
+        Records the completion on the caller's per-character spy-quest log
+        (``caller.db.spy_quests``); on the completion that first reaches
+        ``SPY_QUESTS_TO_AMBUSH`` the Caves ambush springs *once* — the player is
+        branded a cult collaborator (cult standing rises, R2) and the ambush is
+        logged. Live ambush-mob spawning rides the project-wide stubbed spawner;
+        the observable effects (the standing gain, the brand) fire here. (R4 §4)
+        """
+        if not quest.aids_cult:
+            return
+        log = SpyQuestLog(caller.db.spy_quests or ())
+        sprung = complete_spy_quest(log, quest.id)
+        caller.db.spy_quests = sorted(log.completed)
+        if not sprung:
+            return
+        managers = search_script("faction_manager")
+        if managers:
+            managers[0].apply_quest_aid(CULT_FACTION_ID, str(caller.id))
+        logger.log_info(
+            f"quests: {caller} sprang the cult Caves ambush "
+            f"(reached {len(log.completed)} spy quests; last={quest.id})."
+        )
+        caller.msg("Too late, you sense the trap — cultists erupt from the Caves in ambush!")
 
     def func(self) -> None:
         caller = self.caller
@@ -269,6 +317,7 @@ class CmdTurnin(Command):  # type: ignore[misc]
             caller.msg(f"'{quest.title}' cannot be completed yet — suspicions, not proof.")
             return
         self._apply_reward(caller, quest)
+        self._advance_cult_chain(caller, quest)
         log[quest.id] = qstate.turn_in(quest, entry, now=time.time())
         caller.db.quests = log
         if quest.reward.gp:

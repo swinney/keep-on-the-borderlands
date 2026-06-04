@@ -159,6 +159,27 @@ def test_broken_leadership_raises_rival_tension() -> None:
     assert state.get_tension("kobold", "ogre") == initial_ogre + 6
 
 
+def test_break_alliance_cools_an_allied_pair_to_peaceful() -> None:
+    """WHEN an allied pair's bond is broken THEN it leaves 'allied' for 'peaceful'."""
+    state = FactionState()
+    # goblin-ogre start allied (T = -10) per the initial matrix.
+    assert state.relation_band("goblin", "ogre") == "allied"
+    state.apply_break_alliance("goblin", "ogre")
+    assert state.relation_band("goblin", "ogre") == "peaceful"
+    # Order-independent (canonical pair key).
+    assert state.get_tension("ogre", "goblin") == faction_cfg.BROKEN_ALLIANCE_TENSION
+
+
+def test_break_alliance_leaves_a_non_allied_pair_unchanged() -> None:
+    """WHEN a pair is not allied THEN breaking 'their alliance' is a no-op (never re-warms)."""
+    state = FactionState()
+    # kobold-goblin start tense/peaceful, not allied.
+    assert state.relation_band("kobold", "goblin") != "allied"
+    before = state.get_tension("kobold", "goblin")
+    state.apply_break_alliance("kobold", "goblin")
+    assert state.get_tension("kobold", "goblin") == before
+
+
 def test_initial_relations_match_matrix() -> None:
     """WHEN a season begins THEN tribe pairs match the B2 matrix; unlisted default tense."""
     # Three highlighted set-piece pairs from §3
