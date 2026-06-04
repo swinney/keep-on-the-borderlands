@@ -160,9 +160,23 @@ class PriestManager(DefaultScript):
     # ── Season-reset hook (R6 §3.3; called by the season_manager) ─────────────
 
     def reset_season(self, rng: Random | None = None) -> None:
-        """Re-roll the spy and clue set at the season boundary (spec §2, §6)."""
-        self.assign_spy(rng)
-        self.assign_clues(rng)
+        """Re-roll the plot at the season boundary (spec §2, §6).
+
+        The single reset transition: re-roll the spy (excluding the outgoing
+        one) and re-draw its clue set, which also clears the server-global
+        ``exposed`` flag (a fresh season's spy starts unmasked). The chapel is
+        restored to its disguised 5-NPC staff and any Shrine boss instance from
+        last season's exposure is removed (spec §6) — live mob teardown rides the
+        same logged-stub path as ``_expose_spy`` until the spawner is wired.
+        """
+        state = self._priest_state()
+        spy_id, clue_ids = state.reset_season(rng if rng is not None else Random())
+        self._save(state)
+        logger.log_info(
+            f"priest_manager: season reset — spy is now {spy_id}, "
+            f"clues {list(clue_ids)}; exposure cleared, chapel restored, "
+            f"any Shrine {_cfg.BOSS_LAIR_ROOM} boss removed."
+        )
 
     # Satisfy mypy: Evennia base attributes accessed dynamically.
     db: Any

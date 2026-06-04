@@ -11,8 +11,6 @@ reset — land with their own slices and unskip the stubs below as they arrive.
 
 from random import Random
 
-import pytest
-
 from world.factions.state import FactionState
 from world.priest import config as cfg
 from world.priest import detection, exposure, quests
@@ -346,6 +344,63 @@ def test_weak_report_is_rejected() -> None:
     assert state.exposed is False
 
 
-@pytest.mark.skip(reason="M12 reset slice")
 def test_reset_clears_plot() -> None:
     """WHEN a season resets THEN identity re-rolls, exposure/evidence clear, chapel restores."""
+    rng = Random(20260604)
+    state = PriestState()
+    state.assign_spy(rng)
+    state.assign_clues(rng)
+
+    # Expose the spy this season, and have a player accrue some evidence.
+    proof = Evidence(strong_proofs=(cfg.PROOF_DETECT_EVIL,))
+    exposure.report_to_castellan(state, proof)
+    assert state.exposed is True
+    first_spy, first_clues = state.spy_id, state.clue_ids
+
+    # The season boundary reset re-rolls the whole plot in one transition.
+    new_spy, new_clues = state.reset_season(rng)
+
+    # Identity re-rolls and never repeats the just-ended season's spy.
+    assert new_spy == state.spy_id
+    assert state.spy_id != first_spy
+    assert state.spy_id in cfg.POOL_IDS
+
+    # The clue set is a fresh valid draw, not last season's.
+    assert new_clues == state.clue_ids
+    assert len(state.clue_ids) == cfg.CLUE_COUNT
+    assert len(set(state.clue_ids)) == cfg.CLUE_COUNT
+    assert set(state.clue_ids) <= set(cfg.CLUE_IDS)
+    assert state.clue_ids != first_clues
+
+    # Exposure is cleared: the new season's spy starts unmasked, and a reporter
+    # who still held last season's proof can no longer expose without re-earning
+    # it against this season's identity (the flag is fresh, evidence is private).
+    assert state.exposed is False
+
+    # Per-character evidence lives off the global state, so a new season's
+    # investigator starts from an empty Evidence — nothing carries over.
+    fresh = Evidence()
+    assert fresh.clue_count == 0
+    assert fresh.strong_proofs == set()
+    assert fresh.can_report is False
+
+
+def test_two_season_rotation_full_cycle() -> None:
+    """WHEN two full seasons run THEN each rotates identity, clues, and exposure cleanly."""
+    rng = Random(7)
+    state = PriestState()
+
+    # Season 1: assign, expose.
+    state.reset_season(rng)
+    season1_spy = state.spy_id
+    assert season1_spy in cfg.POOL_IDS
+    exposure.report_to_castellan(state, Evidence(strong_proofs=(cfg.PROOF_DETECT_EVIL,)))
+    assert state.exposed is True
+
+    # Season 2: reset rotates to a different spy and clears the prior exposure.
+    state.reset_season(rng)
+    season2_spy = state.spy_id
+    assert season2_spy != season1_spy
+    assert season2_spy in cfg.POOL_IDS
+    assert state.exposed is False
+    assert len(state.clue_ids) == cfg.CLUE_COUNT

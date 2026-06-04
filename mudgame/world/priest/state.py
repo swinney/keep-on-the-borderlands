@@ -66,3 +66,16 @@ class PriestState:
         """
         self.clue_ids = tuple(rng.sample(_cfg.CLUE_IDS, _cfg.CLUE_COUNT))
         return self.clue_ids
+
+    def reset_season(self, rng: Random) -> tuple[str | None, tuple[str, ...]]:
+        """Re-roll the plot at a season boundary (spec §6); return (spy, clues).
+
+        The single global reset transition: re-roll the spy (never the outgoing
+        one, via ``assign_spy``, which also clears the ``exposed`` flag) and
+        re-draw the clue set. Per-character evidence lives off this state — on
+        each Character — so the engine reset hook clears those separately; here
+        the global identity, clue set, and exposure flag are all renewed.
+        """
+        spy_id = self.assign_spy(rng)
+        clue_ids = self.assign_clues(rng)
+        return spy_id, clue_ids
