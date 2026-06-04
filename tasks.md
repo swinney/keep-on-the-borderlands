@@ -216,7 +216,7 @@ Implementation slices (spec §14, each spec→test→impl, dependency order):
 - [x] M15 slice 3 — `world/build/orchestrator.py` `build_all()`: zone build order + manager bring-up + spawn registration + initial population pass, idempotent; wire `at_initial_setup()`; `tests/world_build/test_orchestrator.py` (incl. idempotency §13.4 + leadership-halt-with-real-scouts integration §13.5).
 - [x] M15 slice 4 — giver-key (M13 F1): add `giver_key` to `NpcRecord`/`MobRecord`, builder + spawner write-through, `commands.quests._giver_here` resolves on `db.giver_key`; tribe-chief alive-and-present rule; `tests/world_build/test_givers.py` (§13.7).
 - [x] M15 slice 5 — deed hooks (M13 F3): `world/build/events.py` + the in-world triggers (altar shrine-destroyed flag WITHOUT re-firing `end_season`, delivery/escort/spy-drop); `tests/world_build/test_deed_hooks.py` (§13.8).
-- [ ] M15 slice 6 — season-rebuild delegation (`rebuild_world`→orchestrator, despawn-stale→repopulate, persistence untouched) + the boot/headless-population check + load-harness sketch; unblocks the three M14 measurement tasks. Per spec §10-§11, §13.9-§13.10.
+- [x] M15 slice 6 — season-rebuild delegation (`rebuild_world`→orchestrator, despawn-stale→repopulate, persistence untouched) + the boot/headless-population check + load-harness sketch; unblocks the three M14 measurement tasks. Per spec §10-§11, §13.9-§13.10.
 - [ ] ⛔ MILESTONE GATE (M15 → review) — write "M15 world-build complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 ## Deferred follow-ups

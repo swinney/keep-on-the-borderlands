@@ -218,6 +218,23 @@ def despawn(instance_id: str) -> bool:
     return bool(matches)
 
 
+def despawn_all() -> int:
+    """Delete every live spawn instance (mobs + scouts); return the count removed.
+
+    The season rebuild's "despawn stale instances -> re-spawn from registry"
+    first step (spec §7, §10): clearing every ``spawn_instance``-tagged object so
+    the population pass re-rolls a fresh world rather than skipping the survivors
+    it already finds alive (``spawn_mob`` is idempotent). Player-owned objects
+    carry no such tag and are never touched (spec §10; R6 persistence boundary).
+    """
+    from evennia.utils.search import search_object_by_tag  # noqa: PLC0415
+
+    matches = list(search_object_by_tag(category=SPAWN_INSTANCE_CATEGORY))
+    for obj in matches:
+        obj.delete()
+    return len(matches)
+
+
 def _is_dead(mob: Any) -> bool:
     """True when a spawned mob instance is at 0 HP (combat.md §4.2)."""
     return is_dead(int(mob.traits.hp.value))

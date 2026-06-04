@@ -19,9 +19,11 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from evennia.utils.search import search_object_by_tag, search_script
+from evennia.objects.models import ObjectDB
+from evennia.utils import create
+from evennia.utils.search import search_object, search_object_by_tag, search_script
 
-from world.build import orchestrator, spawner
+from world.build import loadharness, orchestrator, spawner
 from world.zones.builder import EXIT_CATEGORY, NPC_CATEGORY, OBJECT_CATEGORY, ROOM_CATEGORY
 from world.zones.caves import MOB_TEMPLATES, SPAWNS
 from world.zones.spawn_registry import spawn_points
@@ -167,3 +169,64 @@ def test_leaders_live_and_halt_fires_with_real_scouts(
 
     # The halt applied the R2 leadership_broken tension spike with the rival.
     assert factions.get_tension("kobold", "orc_vol") > baseline_tension
+
+
+@pytest.mark.django_db
+def test_rebuild_world_repopulates_and_preserves_players(
+    built_world: orchestrator.BuildSummary,
+) -> None:
+    """rebuild_world despawns stale instances + re-populates; player data untouched (§13.9)."""
+    summary = built_world
+    kobold_chief = _cave_tribes_with_leaders()["kobold"]["chief"]
+
+    # A live chief instance stands before the rebuild.
+    before = _live(kobold_chief.spawn_id)
+    assert before is not None
+    before_pk = before.pk
+
+    # A player character with XP/gear/coin/bank that the rebuild must NOT touch.
+    char = create.create_object("typeclasses.characters.PlayerCharacter", key="wb-pc-persist")
+    gear = create.create_object("typeclasses.objects.Object", key="wb-gear-persist", location=char)
+    try:
+        char.traits.level.base = 5
+        char.traits.xp.current = 12000
+        char.db.coin = 33
+        char.db.bank_balance = 410
+        char_pk = char.pk
+
+        rebuilt = orchestrator.rebuild_world()
+
+        # The world re-populated to the same shape, but the stale chief instance
+        # was despawned and re-spawned fresh (a new object, not the survivor).
+        assert rebuilt.mobs == summary.mobs
+        after = _live(kobold_chief.spawn_id)
+        assert after is not None
+        assert after.pk != before_pk
+        assert not ObjectDB.objects.filter(pk=before_pk).exists()
+
+        # Player-persisted state is untouched (spec §10; R6 persistence boundary).
+        assert ObjectDB.objects.filter(pk=char_pk).exists()
+        assert int(char.traits.level.value) == 5
+        assert int(char.traits.xp.current) == 12000
+        assert char.db.coin == 33
+        assert char.db.bank_balance == 410
+        assert gear.location == char
+    finally:
+        for item in list(char.contents):
+            item.delete()
+        if char.pk is not None:
+            char.delete()
+
+
+@pytest.mark.django_db
+def test_run_load_reports_driven_population(built_world: orchestrator.BuildSummary) -> None:
+    """The load harness drives the requested sessions and reports them (§11)."""
+    report = loadharness.run_load(3, build=False)
+
+    # It reports the population it actually drove — never silently capped (§11).
+    assert report.requested_sessions == 3
+    assert report.driven_sessions == 3
+    assert report.commands_run == 3 * len(loadharness.DEFAULT_COMMAND_MIX)
+    assert report.latency.samples == report.commands_run
+    # The harness tore down its own synthetic sessions — no loadbots linger.
+    assert not search_object("loadbot-0")

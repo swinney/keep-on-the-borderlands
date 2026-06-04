@@ -108,3 +108,29 @@ def build_all() -> BuildSummary:
         npcs=len(search_object_by_tag(category=NPC_CATEGORY)),
         mobs=mobs,
     )
+
+
+def rebuild_world() -> BuildSummary:
+    """Re-populate the world for a seasonal reset (spec §10); return the summary.
+
+    The real-work target of ``season_manager.rebuild_world()`` (formerly a no-op).
+    A season reset is mechanically "flush manager state and re-run the relevant
+    parts of the world build" (seasonal-reset spec; architecture §4):
+
+    1. **Despawn stale instances** — every live ``spawn_instance``-tagged mob and
+       scout is cleared, so the new season opens with a freshly rolled population
+       instead of the survivors ``build_all()`` would otherwise skip as already
+       alive (spawner idempotency, §7).
+    2. **Re-build + re-populate** — ``build_all()`` re-runs the idempotent zone
+       ``build()`` hooks (rooms/exits/NPCs update in place) and the initial
+       population pass against the retained spawn-point registry.
+
+    Player-persisted state (characters, XP, gear, bank, leaderboard) carries no
+    spawn-instance tag and is never touched (spec §10; R6 persistence boundary).
+    The ``season_manager`` owns reset *ordering* (it calls this after the
+    manager-state resets); this entry point owns only the world materialisation.
+    """
+    from world.build import spawner  # noqa: PLC0415
+
+    spawner.despawn_all()
+    return build_all()
