@@ -13,6 +13,7 @@ from world.quests.config import (
     BOUNTY_COOLDOWN_SECONDS,
     CATALOG,
     GUILDMASTER,
+    KillStep,
     quests_from,
 )
 
@@ -33,13 +34,18 @@ def test_kobold_cull_is_in_the_catalog() -> None:
 
 def test_kobold_cull_requires_eight_kobold_kills() -> None:
     (step,) = CATALOG[KOBOLD_CULL].steps
+    assert isinstance(step, KillStep)
     assert step.faction == "kobold"
     assert step.count == 8
 
 
 def test_quests_from_returns_the_guildmaster_bounty() -> None:
     offered = quests_from(GUILDMASTER)
-    assert [q.id for q in offered] == [KOBOLD_CULL]
+    # The M9 kobold cull is the first Guildmaster bounty; the M13 catalog adds the
+    # rest of the combat bounties, all attributed to the Guildmaster.
+    assert KOBOLD_CULL in {q.id for q in offered}
+    assert offered[0].id == KOBOLD_CULL
+    assert all(q.giver == GUILDMASTER for q in offered)
     assert quests_from("nobody") == []
 
 

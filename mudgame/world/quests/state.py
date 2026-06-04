@@ -17,13 +17,25 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TypedDict
 
-from world.quests.config import BOUNTY_COOLDOWN_SECONDS, Quest
+from world.quests.config import BOUNTY_COOLDOWN_SECONDS, KillStep, Quest
 
 # Displayed quest states (quests.md §1).
 NOT_OFFERED = "not_offered"
 AVAILABLE = "available"
 ACTIVE = "active"
 COMPLETE = "complete"
+
+
+def kill_steps(quest: Quest) -> tuple[KillStep, ...]:
+    """The quest's kill-count objectives only (quests.md §1).
+
+    The pure state machine tracks kill progress; non-kill ``DeedStep`` objectives
+    (fetch / escort / report / deliver / donate / bribe) are resolved by engine
+    events, so this filters them out. A quest with no kill steps has nothing for
+    the tracker to count — ``steps_met`` is then vacuously true and its completion
+    is driven entirely by the engine deed.
+    """
+    return tuple(step for step in quest.steps if isinstance(step, KillStep))
 
 
 class QuestEntry(TypedDict):
@@ -40,18 +52,23 @@ QuestLog = dict[str, QuestEntry]
 
 def fresh_progress(quest: Quest) -> dict[str, int]:
     """A zeroed progress map covering every kill-step faction in ``quest``."""
-    return {step.faction: 0 for step in quest.steps}
+    return {step.faction: 0 for step in kill_steps(quest)}
 
 
 def steps_met(quest: Quest, progress: Mapping[str, int]) -> bool:
-    """True when every kill step has reached its required count."""
-    return all(progress.get(step.faction, 0) >= step.count for step in quest.steps)
+    """True when every kill step has reached its required count.
+
+    A quest with no kill steps (a pure deed) is vacuously met by this tracker; its
+    real completion is gated by the engine event that satisfies the deed.
+    """
+    return all(progress.get(step.faction, 0) >= step.count for step in kill_steps(quest))
 
 
 def remaining(quest: Quest, progress: Mapping[str, int]) -> dict[str, int]:
     """Kills still owed per faction (never negative)."""
     return {
-        step.faction: max(0, step.count - progress.get(step.faction, 0)) for step in quest.steps
+        step.faction: max(0, step.count - progress.get(step.faction, 0))
+        for step in kill_steps(quest)
     }
 
 
@@ -89,7 +106,7 @@ def accept(quest: Quest, entry: QuestEntry | None) -> QuestEntry:
 def credit_kill(quest: Quest, progress: Mapping[str, int], faction: str) -> dict[str, int]:
     """Return progress with one kill of ``faction`` credited (capped at the step count)."""
     updated = dict(progress)
-    for step in quest.steps:
+    for step in kill_steps(quest):
         if step.faction == faction:
             updated[faction] = min(step.count, updated.get(faction, 0) + 1)
     return updated

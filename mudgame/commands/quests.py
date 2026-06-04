@@ -92,10 +92,13 @@ class CmdQuests(Command):  # type: ignore[misc]
                 done = qstate.steps_met(quest, entry["progress"])
                 lines.append(f"    remaining: {detail if not done else 'none — ready to turn in'}")
             elif state == qstate.AVAILABLE:
-                step = quest.steps[0]
-                lines.append(
-                    f"    objective: slay {step.count} {step.faction} - reward {quest.reward.gp} gp"
-                )
+                kills = qstate.kill_steps(quest)
+                if kills:
+                    step = kills[0]
+                    lines.append(
+                        f"    objective: slay {step.count} {step.faction}"
+                        f" - reward {quest.reward.gp} gp"
+                    )
         caller.msg("\n".join(lines))
 
 
@@ -139,8 +142,12 @@ class CmdAccept(Command):  # type: ignore[misc]
             return
         log[quest.id] = qstate.accept(quest, entry)
         caller.db.quests = log
-        step = quest.steps[0]
-        caller.msg(f"You take the bounty '{quest.title}': slay {step.count} {step.faction}.")
+        kills = qstate.kill_steps(quest)
+        if kills:
+            step = kills[0]
+            caller.msg(f"You take the bounty '{quest.title}': slay {step.count} {step.faction}.")
+        else:
+            caller.msg(f"You take the bounty '{quest.title}'.")
 
 
 class CmdTurnin(Command):  # type: ignore[misc]
