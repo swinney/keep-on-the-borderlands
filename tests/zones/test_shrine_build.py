@@ -8,15 +8,23 @@ reset restocks the cult wholesale through the repop_manager (M11 §5).
 
 from __future__ import annotations
 
+import contextlib
 import time
 from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from django.core.exceptions import ObjectDoesNotExist
 from evennia.utils.search import search_object_by_tag
 
 from world.zones import shrine
-from world.zones.builder import EXIT_CATEGORY, FLAG_CATEGORY, OBJECT_CATEGORY, ROOM_CATEGORY
+from world.zones.builder import (
+    EXIT_CATEGORY,
+    FLAG_CATEGORY,
+    NPC_CATEGORY,
+    OBJECT_CATEGORY,
+    ROOM_CATEGORY,
+)
 from world.zones.spawn_registry import spawn_points
 
 
@@ -32,6 +40,34 @@ def _shrine_objects() -> list[Any]:
     return list(search_object_by_tag(category=OBJECT_CATEGORY))
 
 
+def _teardown_world() -> None:
+    """Delete every builder/spawner-created object, tolerating already-deleted ones.
+
+    Symmetric with both ``build()`` (shrine-only) and ``orchestrator.build_all()``
+    (whole world). Order matters: contents (mobs/scouts, NPCs, placed objects)
+    go before their containing rooms, so deleting a room never relocates a live
+    object through an already-deleted home. ``end_season`` (R6/R9) re-runs the
+    full world build mid-test via ``rebuild_world`` -> ``build_all()``, so a
+    shrine-only teardown would leak the other zones and crash on the now
+    cross-referenced object graph; deleting defensively across every category
+    keeps setup<->teardown consistent regardless of which build ran.
+    """
+    from world.build.spawner import SPAWN_INSTANCE_CATEGORY  # noqa: PLC0415
+
+    for category in (
+        SPAWN_INSTANCE_CATEGORY,  # spawned mobs + scouts
+        NPC_CATEGORY,
+        OBJECT_CATEGORY,
+        EXIT_CATEGORY,
+        ROOM_CATEGORY,
+    ):
+        for obj in list(search_object_by_tag(category=category)):
+            # A cascade from an earlier delete (e.g. clear_contents relocating
+            # through a room already removed) can leave this stale — tolerated.
+            with contextlib.suppress(ObjectDoesNotExist):
+                obj.delete()
+
+
 def _find_room(room_key: str) -> Any:
     matches = search_object_by_tag(f"shrine:{room_key}", category=ROOM_CATEGORY)
     return matches[0] if matches else None
@@ -44,14 +80,26 @@ def built_shrine() -> Iterator[None]:
     try:
         yield
     finally:
-        # Objects first: deleting a room relocates leftover contents (the altar),
-        # which can then touch already-deleted rooms.
-        for obj in _shrine_objects():
-            obj.delete()
-        for exit_ in _shrine_exits():
-            exit_.delete()
-        for room in _shrine_rooms():
-            room.delete()
+        _teardown_world()
+
+
+@pytest.fixture
+def built_world() -> Iterator[None]:
+    """Build the whole world (orchestrator), yield, then tear it all down.
+
+    For the season-end test: shattering the altar fires ``end_season`` ->
+    ``rebuild_world`` -> ``build_all()``, which rebuilds keep+wilderness+caves+
+    shrine. Building the full world up front makes setup symmetric with that
+    side effect, so the defensive teardown cleans up the same object graph the
+    test leaves behind.
+    """
+    from world.build import orchestrator  # noqa: PLC0415
+
+    orchestrator.build_all()
+    try:
+        yield
+    finally:
+        _teardown_world()
 
 
 @pytest.mark.django_db
@@ -187,24 +235,26 @@ def test_partial_damage_does_not_shatter_or_end_season(built_shrine: None) -> No
 
 
 @pytest.mark.django_db
-def test_destroying_altar_ends_the_season(built_shrine: None) -> None:
+def test_destroying_altar_ends_the_season(built_world: None) -> None:
     """Reducing the altar to 0 hp shatters it and ends the season (R6/R9).
 
     The killing blow fires season_manager.end_season(reason="shrine_destroyed"),
     advancing the season counter; a second blow on the rubble does not re-fire.
+
+    Uses the season_manager that ``build_all()`` already brought up (the one the
+    altar's ``at_destruction`` hook resolves via ``search_script``), rather than
+    creating a second — two managers keyed ``season_manager`` would let the hook
+    advance one while this test inspected the other.
     """
-    from evennia.utils import create  # noqa: PLC0415
+    from evennia.utils.search import search_script  # noqa: PLC0415
 
-    manager = create.create_script("world.managers.season_manager.SeasonManager")
-    try:
-        season = manager.db.season_number
-        altar = _altar()
-        altar.apply_damage(int(altar.db.hp) + 50)  # an overkill killing blow
-        assert altar.db.destroyed is True
-        assert manager.db.season_number == season + 1
+    manager = search_script("season_manager")[0]
+    season = manager.db.season_number
+    altar = _altar()
+    altar.apply_damage(int(altar.db.hp) + 50)  # an overkill killing blow
+    assert altar.db.destroyed is True
+    assert manager.db.season_number == season + 1
 
-        # A further blow on the shattered altar is inert — the season ends once.
-        altar.apply_damage(100)
-        assert manager.db.season_number == season + 1
-    finally:
-        manager.delete()
+    # A further blow on the shattered altar is inert — the season ends once.
+    altar.apply_damage(100)
+    assert manager.db.season_number == season + 1
