@@ -168,7 +168,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 
 - [x] `priest_manager`: seasonal rotation with no back-to-back identity repeat
 - [x] Clue assignment from the pool
-- [ ] Four detection paths: Detect Evil, Curate dialogue, witnessed nighttime act, planted object
+- [x] Four detection paths: Detect Evil, Curate dialogue, witnessed nighttime act, planted object
 - [ ] Spy quest chain (3+ → Caves ambush)
 - [ ] Exposure → server-global event → spy flees to Shrine boss
 - [ ] `tests/disguised_priest` green, incl. two-season-rotation scenario (M12 exit)
