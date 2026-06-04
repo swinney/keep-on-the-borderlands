@@ -62,3 +62,13 @@ class Evidence:
         clue sightings.
         """
         return bool(self.strong_proofs) or (self.clue_count >= _cfg.CLUE_SIGHTINGS_TO_REPORT)
+
+    @property
+    def meets_curate_threshold(self) -> bool:
+        """Whether the character has logged enough clues for the Curate to open up.
+
+        The lower of the two evidence bars (spec §3, Curate row): the Curate
+        shares suspicions once the player holds ``CURATE_CLUE_THRESHOLD`` distinct
+        clue sightings, well before they have report-grade proof.
+        """
+        return self.clue_count >= _cfg.CURATE_CLUE_THRESHOLD

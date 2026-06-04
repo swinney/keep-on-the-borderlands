@@ -100,6 +100,11 @@ class FactionManager(DefaultScript):
         state.apply_quest_aid_vs(faction_a, faction_b)
         self._save(state)
 
+    def apply_break_alliance(self, faction_a: str, faction_b: str) -> None:
+        state = self._faction_state()
+        state.apply_break_alliance(faction_a, faction_b)
+        self._save(state)
+
     def apply_leadership_broken(self, faction_id: str) -> None:
         state = self._faction_state()
         state.apply_leadership_broken(faction_id)

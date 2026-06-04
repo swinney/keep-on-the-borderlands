@@ -121,6 +121,17 @@ class FactionState:
         """Quest aiding A against B: T(A,B) +8 (escalates toward war)."""
         self._add_tension(faction_a, faction_b, _cfg.RELATION_EVENTS["quest_aid_vs"])
 
+    def apply_break_alliance(self, faction_a: str, faction_b: str) -> None:
+        """Break an alliance: an allied pair cools to peaceful (quests.md §8.6).
+
+        Used by the bribe-the-ogre quest — the bought-off ally withdraws, so the
+        pair leaves the ``allied`` band but does not turn hostile. Only acts on a
+        currently-allied pair; a pair already peaceful-or-worse is left unchanged
+        (breaking a bond never *re-warms* a soured one).
+        """
+        if self.relation_band(faction_a, faction_b) == "allied":
+            self.tensions[_pair_key(faction_a, faction_b)] = _cfg.BROKEN_ALLIANCE_TENSION
+
     def apply_leadership_broken(self, faction_id: str) -> None:
         """Tribe's chief+shaman killed: T(faction, rival) +6 for every rival."""
         for other in _PAIR_FACTIONS:

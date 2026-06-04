@@ -61,6 +61,11 @@ RELATION_EVENTS: dict[str, int] = {
     "leadership_broken": +6,  # per rival when chief+shaman die
 }
 
+# Breaking an alliance (bribing the ogre to abandon the goblins, quests.md §8.6)
+# dissolves the bond without making enemies: the pair leaves the "allied" band
+# and cools to the bottom of "peaceful" (one above allied's ceiling of -10).
+BROKEN_ALLIANCE_TENSION: int = -9
+
 # ---------------------------------------------------------------------------
 # Decay (anti-griefing: drift toward season-initial, never past it)
 # ---------------------------------------------------------------------------
