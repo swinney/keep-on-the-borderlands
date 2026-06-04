@@ -1,0 +1,7 @@
+{% extends "webclient/base.html" %}
+{% load static %}
+
+{% block extra_head %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'webclient/css/theme.css' %}">
+{% endblock extra_head %}

@@ -188,7 +188,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 
 Buildable now (static config — no runtime needed):
 
-- [ ] Web-client theming + MOTD
+- [x] Web-client theming + MOTD
 - [ ] ⛔ MILESTONE GATE (M14 polish slice → review) — write "M14 web theming complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 **BLOCKED on the world-build/runtime layer** (see "Deferred follow-ups" → *World-build / runtime orchestrator*). These M14 acceptance criteria need a

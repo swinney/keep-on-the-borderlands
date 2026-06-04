@@ -1,0 +1,41 @@
+/* Keep on the Borderlands — dark-parchment dungeon theme */
+
+:root {
+    --bg-color: #1a1410;
+    --text-color: #d4b483;
+    --accent-color: #8b1a1a;
+    --link-color: #c8a45a;
+    --input-bg: #0f0c09;
+    --input-text: #e8d5a3;
+    --border-color: #4a3728;
+    --scrollbar-color: #4a3728;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+.webclient {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+
+a {
+    color: var(--link-color);
+}
+
+input,
+textarea {
+    background-color: var(--input-bg);
+    color: var(--input-text);
+    border-color: var(--border-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-color);
+}
+
+* {
+    scrollbar-color: var(--scrollbar-color) var(--bg-color);
+}
