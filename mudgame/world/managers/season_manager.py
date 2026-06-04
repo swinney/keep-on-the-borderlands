@@ -195,9 +195,13 @@ class SeasonManager(DefaultScript):
         logger.log_info("season_manager: revert season-global quest effects (no-op pre-M13)")
 
     def rebuild_world(self) -> None:
-        # Live mob/room instances rebuild from world/zones/ data at M7/M9; logged
-        # no-op until the zones exist, mirroring repop_manager._instantiate.
-        logger.log_info("season_manager: rebuild world instances (no-op pre-M7)")
+        # Despawn stale live instances and re-populate the world from the zone
+        # registries (world-build spec §10). The orchestrator owns *how* to
+        # rebuild; this manager owns only reset *ordering* (R6 §3.3). Imported
+        # lazily so the manager module stays free of the build package at load.
+        from world.build import orchestrator  # noqa: PLC0415
+
+        orchestrator.rebuild_world()
 
     def refresh_roster(self) -> None:
         # The henchmen tavern roster refreshes with the Keep zone (M7); logged

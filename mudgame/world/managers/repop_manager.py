@@ -6,9 +6,10 @@ per-point respawn timers across restarts, and fires the reconciliation tick.
 
 Typeclasses report a mob death by calling ``notify_death(spawn_id)``; on each
 ``MANAGER_TICK`` the manager re-instantiates every point whose timer has
-elapsed. The actual mob instantiation is delegated to ``_instantiate`` and is
-wired to real zone prototypes by the zone milestones (M7/M9); until those exist
-it is a safe no-op that still clears the timer so the registry stays consistent.
+elapsed. The actual mob instantiation is delegated to ``world.build.spawner``
+(world-build spec §6): the manager owns *when* to spawn (timers, halt windows,
+the Shrine cycle), the spawner owns *how*. A spawn whose room is not yet built
+returns ``None`` and the timer is still cleared, so the registry never wedges.
 
 Usage (from anywhere in the running game)::
 
@@ -25,8 +26,9 @@ from typing import Any
 
 import evennia
 from evennia.scripts.scripts import DefaultScript
-from evennia.utils import logger, search
+from evennia.utils import search
 
+from world.build import spawner
 from world.factions import config as fac_cfg
 from world.repop import config as cfg
 from world.repop.state import HaltEvent, RepopState, Scout, SpawnPoint
@@ -101,6 +103,23 @@ class RepopManager(DefaultScript):
         alive again, so a season-reset rebuild re-runs this safely.
         """
         self.register_all(spawn_points(zone, spawns, mob_templates))
+
+    def populate(self) -> int:
+        """Materialise one live mob per registered spawn point (world-build §4.4).
+
+        The initial population pass the boot orchestrator runs after every zone's
+        spawns are registered. Delegates each materialisation to the spawner,
+        which is idempotent (skips a point that already has a live instance) and
+        room-deferred (a not-yet-built room yields no mob), so this is safe to
+        re-run on every boot and from the season rebuild. Returns the number of
+        registered points that now stand as a live mob.
+        """
+        state = self._repop_state()
+        count = 0
+        for point in state.spawn_points():
+            if spawner.spawn_mob(point) is not None:
+                count += 1
+        return count
 
     # ── Death / respawn API ───────────────────────────────────────────────────
 
@@ -180,11 +199,10 @@ class RepopManager(DefaultScript):
 
         The cult does not trickle back on per-mob timers: every Shrine spawn
         point is marked alive again at the 24h boundary (``restock``) and each is
-        re-instantiated, then the canonical server-wide broadcast fires. Live
-        re-instantiation rides the same no-op path as standard respawns until the
-        spawner is wired. Registered Shrine points only exist once the zone has
+        re-instantiated through the spawner, then the canonical server-wide
+        broadcast fires. Registered Shrine points only exist once the zone has
         been registered (world build / season rebuild); with none registered the
-        restock is a no-op and only the broadcast fires, preserving prior
+        restock spawns nothing and only the broadcast fires, preserving prior
         behaviour.
         """
         for spawn_id in state.restock(cfg.SHRINE_ZONE):
@@ -230,27 +248,21 @@ class RepopManager(DefaultScript):
         self._save(state)
 
     def _instantiate(self, point: SpawnPoint) -> None:
-        """Re-instantiate a mob from its template at its room.
+        """Re-instantiate a mob from its template at its room (world-build §6).
 
-        Wired to real zone prototypes by M7/M9. Until those zones exist this is
-        a logged no-op; the caller still clears the timer so the registry does
-        not wedge on missing templates.
+        Delegates the materialisation to ``world.build.spawner``; the caller still
+        clears the timer regardless, so a missing room/template (spawner returns
+        ``None``) never wedges the registry.
         """
-        logger.log_info(f"repop_manager: respawn due for {point.spawn_id} ({point.mob_template})")
+        spawner.spawn_mob(point)
 
     def _instantiate_scout(self, scout: Scout) -> None:
-        """Instantiate a rival scout in a broken tribe's lair (§4).
-
-        Wired to real zone prototypes by M7/M9, mirroring ``_instantiate``;
-        until then a logged no-op so the scout registry stays consistent.
-        """
-        logger.log_info(
-            f"repop_manager: scout {scout.scout_id} ({scout.faction}) moves into {scout.room}"
-        )
+        """Instantiate a rival scout in a broken tribe's lair (§4; world-build §6)."""
+        spawner.spawn_scout(scout)
 
     def _retreat_scout(self, scout: Scout) -> None:
         """Despawn a scout that retreats as the original tribe regroups (§4)."""
-        logger.log_info(f"repop_manager: scout {scout.scout_id} retreats from {scout.room}")
+        spawner.despawn(scout.scout_id)
 
     # Satisfy mypy: Evennia base attributes accessed dynamically.
     db: Any

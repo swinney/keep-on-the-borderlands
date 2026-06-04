@@ -53,6 +53,10 @@ class MobRecord(TypedDict):
     treasure: NotRequired[str]
     is_leader: NotRequired[bool]
     leader_role: NotRequired[str]
+    # Stable quest-giver key for a chief who also gives quests (world-build §8,
+    # M13 F1); a giver-key from world.quests.config.GIVERS, distinct from the
+    # display identity. Absent for the vast majority of (non-giver) mobs.
+    giver_key: NotRequired[str]
 
 
 class SpawnRecord(TypedDict):
@@ -73,6 +77,11 @@ class NpcRecord(TypedDict):
     name: str
     sdesc: str
     role: str
+    # Stable quest-giver key (world-build §8, M13 F1) from
+    # world.quests.config.GIVERS, distinct from the display ``role``. Set on a
+    # giver NPC (Guildmaster, Castellan, Curate, Hermit, …) so ``commands.quests``
+    # resolves it regardless of its display role; absent for non-giver service NPCs.
+    giver_key: NotRequired[str]
     inventory: NotRequired[list[str]]
     dialogue: NotRequired[dict[str, str]]
     quests: NotRequired[list[str]]

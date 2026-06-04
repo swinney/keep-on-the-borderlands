@@ -59,6 +59,7 @@ MOB_TEMPLATES: list[MobRecord] = [
         "treasure": "chief's treasure hoard",
         "is_leader": True,
         "leader_role": "chief",
+        "giver_key": "goblin_chief",
     },
     {
         "key": "ogre",

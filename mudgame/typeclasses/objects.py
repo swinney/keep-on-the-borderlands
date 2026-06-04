@@ -29,6 +29,10 @@ class Altar(DefaultObject):
         super().at_object_creation()
         self.db.hp = self.ALTAR_HP
         self.db.destroyed = False
+        # The character whose blow shatters the altar; on destruction the deed
+        # hook credits this player's "Cleanse the Shrine" quest (world-build §9,
+        # M13 F3). Recorded by the combat path, exactly like a Mob's attacker.
+        self.db.last_attacker = None
         # The altar is a fixture of the Shrine — not lootable or movable.
         self.locks.add("get:false()")
 
@@ -55,6 +59,12 @@ class Altar(DefaultObject):
         self.db.destroyed = True
         if self.location is not None:
             self.location.msg_contents("The Altar of Evil Chaos shatters in a blast of unmaking!")
+        # Credit the destroyer's "Cleanse the Shrine" deed (world-build §9, M13 F3):
+        # set only the deed-completion flag. The end_season below is the sole R6
+        # trigger (review F4); the deed hook must not — and does not — re-fire it.
+        from world.build import events  # noqa: PLC0415
+
+        events.shrine_destroyed(self.db.last_attacker)
         results = search_script("season_manager")
         if results:
             results[0].end_season(reason="shrine_destroyed")

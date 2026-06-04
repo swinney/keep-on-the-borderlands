@@ -14,6 +14,7 @@ NPCS: list[NpcRecord] = [
         "name": "The Mad Hermit",
         "sdesc": "a wild-eyed hermit",
         "role": "encounter",
+        "giver_key": "mad_hermit",
         "dialogue": {
             "default": (
                 "He mutters about visions of chaos and a great Shrine to the east, "

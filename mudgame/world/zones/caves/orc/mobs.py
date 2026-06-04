@@ -65,6 +65,7 @@ MOB_TEMPLATES: list[MobRecord] = [
         "treasure": "chief's iron chest",
         "is_leader": True,
         "leader_role": "chief",
+        "giver_key": "orc_vol_chief",
     },
     # ── Orcs of the Decapitator (orc_dec) ────────────────────────────────
     {
@@ -112,5 +113,6 @@ MOB_TEMPLATES: list[MobRecord] = [
         "treasure": "scattered plunder",
         "is_leader": True,
         "leader_role": "chief",
+        "giver_key": "orc_dec_chief",
     },
 ]
