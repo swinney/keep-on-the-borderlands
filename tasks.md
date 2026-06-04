@@ -172,6 +172,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [ ] Spy quest chain (3+ → Caves ambush)
 - [ ] Exposure → server-global event → spy flees to Shrine boss
 - [ ] `tests/disguised_priest` green, incl. two-season-rotation scenario (M12 exit)
+- [ ] ⛔ MILESTONE GATE (M12 → M13) — write "M12 complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 ## M13 — Quest catalog
 
