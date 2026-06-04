@@ -211,7 +211,7 @@ the loop drafts it and halts for review before any tests/implementation.
 
 Implementation slices (spec §14, each spec→test→impl, dependency order):
 
-- [ ] M15 slice 1 — `world/build/templates.py`: pure mob-template registry aggregating every zone's `MOB_TEMPLATES` into `template_key → MobRecord` (globally-unique keys, `KeyError` on unknown); `tests/world_build/test_templates.py` (pure, Django-free). Per spec §5, §13.1.
+- [x] M15 slice 1 — `world/build/templates.py`: pure mob-template registry aggregating every zone's `MOB_TEMPLATES` into `template_key → MobRecord` (globally-unique keys, `KeyError` on unknown); `tests/world_build/test_templates.py` (pure, Django-free). Per spec §5, §13.1.
 - [ ] M15 slice 2 — `world/build/spawner.py`: `spawn_mob`/`spawn_scout`/`despawn` materializing a `MobRecord`+room into a live `Mob` (seeded-RNG HP roll, faction_id/is_leader/spawn_id wired), with spawn-instance-tag idempotency (§6-§7); rewire `repop_manager._instantiate*`/`_retreat_scout`/`_reset_shrine` restock to delegate; `tests/world_build/test_spawner.py`. Per spec §13.2-§13.3, §13.6.
 - [ ] M15 slice 3 — `world/build/orchestrator.py` `build_all()`: zone build order + manager bring-up + spawn registration + initial population pass, idempotent; wire `at_initial_setup()`; `tests/world_build/test_orchestrator.py` (incl. idempotency §13.4 + leadership-halt-with-real-scouts integration §13.5).
 - [ ] M15 slice 4 — giver-key (M13 F1): add `giver_key` to `NpcRecord`/`MobRecord`, builder + spawner write-through, `commands.quests._giver_here` resolves on `db.giver_key`; tribe-chief alive-and-present rule; `tests/world_build/test_givers.py` (§13.7).

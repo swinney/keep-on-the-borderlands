@@ -54,3 +54,9 @@ nosetests.xml
 
 # VSCode config
 .vscode
+
+# First-party package: the bare `build` rule above targets the Python sdist
+# artifact dir, but it also matches our world/build/ package (M15 world-build
+# orchestrator). Re-include it explicitly.
+!world/build/
+!world/build/**
