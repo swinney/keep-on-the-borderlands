@@ -23,12 +23,23 @@ CSS_VARIABLES = [
 ]
 
 
+def _read(path: Path) -> str:
+    """Read ``path``, failing with a clear message if it is missing.
+
+    Each content test reads through this rather than ``Path.read_text`` directly,
+    so a missing file fails with "Missing: …" regardless of test execution order
+    (pytest does not guarantee order, so it can't lean on ``test_*_exists``).
+    """
+    assert path.exists(), f"Missing: {path}"
+    return path.read_text()
+
+
 def test_css_file_exists() -> None:
     assert CSS_PATH.exists(), f"Missing: {CSS_PATH}"
 
 
 def test_css_variables() -> None:
-    content = CSS_PATH.read_text()
+    content = _read(CSS_PATH)
     for var in CSS_VARIABLES:
         assert var in content, f"CSS variable {var!r} not found in theme.css"
 
@@ -38,25 +49,32 @@ def test_template_exists() -> None:
 
 
 def test_template_extends() -> None:
-    content = TEMPLATE_PATH.read_text()
-    assert "extends" in content, "Template does not extend a base template"
-    assert "extra_head" in content, "Template does not define an extra_head block"
+    content = _read(TEMPLATE_PATH)
+    # Assert the exact Django tags the spec requires, not loose substrings: the
+    # template must extend Evennia's webclient base and (re)define extra_head.
+    assert '{% extends "webclient/base.html" %}' in content, (
+        'Template must extend "webclient/base.html"'
+    )
+    assert "{% block extra_head %}" in content, "Template must define the extra_head block"
 
 
 def test_template_css_link() -> None:
-    content = TEMPLATE_PATH.read_text()
-    assert "theme.css" in content, "Template does not reference theme.css"
+    content = _read(TEMPLATE_PATH)
+    # The theme stylesheet must be injected via the static tag.
+    assert "{% static 'webclient/css/theme.css' %}" in content, (
+        "Template does not load theme.css via the {% static %} tag"
+    )
 
 
 def test_connection_screen_title() -> None:
-    content = SCREENS_PATH.read_text()
+    content = _read(SCREENS_PATH)
     assert "Keep on the Borderlands" in content, (
         "CONNECTION_SCREEN missing title 'Keep on the Borderlands'"
     )
 
 
 def test_connection_screen_commands() -> None:
-    content = SCREENS_PATH.read_text()
+    content = _read(SCREENS_PATH)
     assert "connect" in content, "CONNECTION_SCREEN missing 'connect'"
     assert "create" in content, "CONNECTION_SCREEN missing 'create'"
     assert "help" in content, "CONNECTION_SCREEN missing 'help'"
@@ -64,7 +82,7 @@ def test_connection_screen_commands() -> None:
 
 
 def test_servername_setting() -> None:
-    content = SETTINGS_PATH.read_text()
+    content = _read(SETTINGS_PATH)
     assert 'SERVERNAME = "Keep on the Borderlands"' in content, (
         'settings.py SERVERNAME is not "Keep on the Borderlands"'
     )
