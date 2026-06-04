@@ -189,7 +189,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 Buildable now (static config — no runtime needed):
 
 - [x] Web-client theming + MOTD
-- [ ] ⛔ MILESTONE GATE (M14 polish slice → review) — write "M14 web theming complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
+- [x] ⛔ MILESTONE GATE (M14 polish slice → review) — **passed**: web-client theming + MOTD reviewed and merged via PR #21 (CI green; Copilot's 3 nits addressed — STATUS phrasing, order-independent file reads, exact-tag template assertions). Built free-run by the loop (turns 65–66, Sonnet). The remaining M14 criteria are BLOCKED on the world-build/runtime layer below.
 
 **BLOCKED on the world-build/runtime layer** (see "Deferred follow-ups" → *World-build / runtime orchestrator*). These M14 acceptance criteria need a
 *playable, load-testable* server, which the no-op spawner / absent world-build
