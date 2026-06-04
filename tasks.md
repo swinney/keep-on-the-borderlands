@@ -191,14 +191,23 @@ Buildable now (static config — no runtime needed):
 - [x] Web-client theming + MOTD
 - [x] ⛔ MILESTONE GATE (M14 polish slice → review) — **passed**: web-client theming + MOTD reviewed and merged via PR #21 (CI green; Copilot's 3 nits addressed — STATUS phrasing, order-independent file reads, exact-tag template assertions). Built free-run by the loop (turns 65–66, Sonnet). The remaining M14 criteria are BLOCKED on the world-build/runtime layer below.
 
-**BLOCKED on the world-build/runtime layer** (see "Deferred follow-ups" → *World-build / runtime orchestrator*). These M14 acceptance criteria need a
-*playable, load-testable* server, which the no-op spawner / absent world-build
-precludes — the same root as the M13 quest-giver and spawning deferrals. Do NOT
-attempt until that layer exists:
+The remaining three M14 acceptance criteria — economy/XP balance, 50-player
+<100ms latency, and full acceptance-criteria verification — are **BLOCKED on the
+world-build/runtime layer**: they need a *playable, load-testable* server, which
+the no-op spawner / absent world-build precludes. They are tracked under M15
+below (and "Deferred follow-ups" → *World-build / runtime orchestrator*) and
+become doable once that phase lands. They are deliberately **not** loop-grabbable
+tasks until then.
 
-- [ ] Economy / XP-pacing balance pass (target ~L10 in a 6-week season) — needs playtest data from a running game
-- [ ] 50-player <100ms command-latency measurement (acceptance criterion) — needs a running server + load harness
-- [ ] Encounter-table tuning; all OpenSpec acceptance criteria demonstrably met (M14 exit) — needs the game runnable end-to-end
+## M15 — World bring-up (runtime orchestrator)
+
+The phase the deferrals have been pointing at: make the game actually *run* a
+populated world. This unblocks the M13 quest-giver/deed-event wiring and the
+three blocked M14 acceptance criteria. **Spec-first** — the spec is pivotal, so
+the loop drafts it and halts for review before any tests/implementation.
+
+- [ ] Spec: write `docs/specs/world-build.md` — a runtime world-build/boot orchestrator that builds every zone and **spawns** mobs/NPCs/leaders from the existing registries (replacing the deliberate no-op `_instantiate`), wires quest-givers by an explicit giver-key (M13 F1) plus the world-event hooks that set deed-completion flags (M13 F3), and exposes a bootable, load-testable server. Sketch the `tests/world_build/` plan. Per PROMPT.md, write the spec and stop — no implementation this turn.
+- [ ] ⛔ MILESTONE GATE (M15 spec → review) — write "M15 world-build spec drafted — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 ## Deferred follow-ups
 
