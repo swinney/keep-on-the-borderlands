@@ -44,6 +44,12 @@ NPCS: list[NpcRecord] = [
         "role": "guildmaster",
     },
     {
+        "key": "castellan",
+        "name": "The Castellan",
+        "sdesc": "the iron-willed Castellan of the Keep",
+        "role": "castellan",
+    },
+    {
         "key": "curate",
         "name": "The Curate",
         "sdesc": "the Keep's grey-robed Curate",
@@ -85,6 +91,7 @@ NPCS: list[NpcRecord] = [
 PLACEMENT: dict[str, str] = {
     "tavernkeeper": "tavern",
     "guildmaster": "guild",
+    "castellan": "audience",
     "curate": "chapel_nave",
     "anselm": "chapel_nave",
     "maeve": "chapel_vestry",

@@ -1,14 +1,20 @@
-"""Guildmaster quest commands — M9 tribe-clearing bounty slice (docs/specs/quests.md §2).
+"""Quest-giver commands — list, accept, and turn in quests at a giver NPC.
 
-Room-scoped to the Keep's ``guild`` room (mirroring the tavern-scoped
-roster/hire commands in ``commands.henchmen``), these wire the one M9 bounty —
-"Cull the Kobolds" — end to end: ``quests`` lists it, ``accept`` takes it, and
-``turnin`` pays out once the kill steps are met. Kill progress is credited by
-``Mob.at_death`` (``typeclasses.npcs``); the pure state machine lives in
-``world.quests.state`` and the catalog/tuning in ``world.quests.config``.
+Room-scoped like the tavern/shop commands: ``quests``/``accept``/``turnin``
+operate against whichever quest-giver ServiceNpc shares the caller's room (the
+Guildmaster in the guildhall, the Castellan in his audience chamber, and so on),
+resolved by ``_giver_here``. Each giver offers its slice of the catalog
+(``world.quests.config.quests_from``); the pure state machine
+(``world.quests.state``) derives availability and tracks kill progress, credited
+by ``Mob.at_death`` (``typeclasses.npcs``).
 
-The bounty pays its reward as coin; that coin becomes XP when the player secures
-it in the Keep or banks it (economy.md §6) — the M9 "treasure→XP-on-secure loop".
+Completion fires the quest's cross-system effects (quests.md §8): a coin/XP
+reward, the R2 faction standing shift, and — for the two Castellan story quests —
+the **season-global** events. ``c_expose_priest`` reports the disguised spy to
+the Castellan with the player's gathered evidence, tripping the server-global
+exposure (R4); ``c_destroy_shrine`` cleanses the Altar of Chaos, ending the
+season early (R6). Both are delivered by their global-Script managers, so the
+turn-in only reaches them when the manager is live.
 """
 
 from __future__ import annotations
@@ -19,23 +25,32 @@ from typing import Any, ClassVar
 from evennia.commands.command import Command
 from evennia.utils.search import search_script
 
+from world.priest.evidence import Evidence
 from world.quests import state as qstate
-from world.quests.config import GUILDMASTER, Quest, quests_from
+from world.quests.config import (
+    GIVERS,
+    SEASON_END_SEASON,
+    SEASON_EXPOSE_PRIEST,
+    Quest,
+    quests_from,
+)
 
-GUILD_ROOM_KEY = "guild"
 
+def _giver_here(caller: Any) -> str | None:
+    """The quest-giver key for a giver ServiceNpc in the caller's room, or None.
 
-def _room_key(caller: Any) -> str:
-    """Return the caller's room ``room_key`` ('' when roomless or untagged)."""
+    Matches a service NPC whose ``role`` is a known catalog giver
+    (``world.quests.config.GIVERS``) — the Guildmaster, Castellan, Curate, etc.
+    Tribe chiefs are plain ``Mob``s in the caves, not service NPCs, so they are
+    never resolved here.
+    """
     location = caller.location
     if location is None:
-        return ""
-    return str(location.db.room_key or "")
-
-
-def _at_guildmaster(caller: Any) -> bool:
-    """True when the caller stands in the Guildhall (where bounties are handled)."""
-    return _room_key(caller) == GUILD_ROOM_KEY
+        return None
+    for obj in location.contents:
+        if getattr(obj, "IS_SERVICE_NPC", False) and str(obj.db.role or "") in GIVERS:
+            return str(obj.db.role)
+    return None
 
 
 def _quest_log(caller: Any) -> qstate.QuestLog:
@@ -48,25 +63,45 @@ def _level(caller: Any) -> int:
     return int(caller.traits.level.value)
 
 
-def _match_offered(arg: str) -> Quest | None:
-    """Resolve a Guildmaster quest from a command argument (id or title text)."""
+def _player_evidence(caller: Any) -> Evidence:
+    """Rebuild the caller's per-character priest evidence (R4 §3).
+
+    Detection paths persist what a player has gathered under
+    ``caller.db.priest_evidence`` as ``{"clue_sightings": [...],
+    "strong_proofs": [...]}``; an unset attribute reads as no evidence.
+    """
+    raw = caller.db.priest_evidence or {}
+    return Evidence(
+        clue_sightings=raw.get("clue_sightings", ()),
+        strong_proofs=raw.get("strong_proofs", ()),
+    )
+
+
+def _has_evidence(caller: Any) -> bool:
+    """Whether the caller holds enough evidence to expose the spy (R4 §3)."""
+    return _player_evidence(caller).can_report
+
+
+def _match_offered(arg: str, giver: str) -> Quest | None:
+    """Resolve one of ``giver``'s quests from a command argument (id or title)."""
     needle = arg.strip().lower()
     if not needle:
         return None
-    for quest in quests_from(GUILDMASTER):
+    for quest in quests_from(giver):
         if needle == quest.id.lower() or needle in quest.title.lower():
             return quest
     return None
 
 
 class CmdQuests(Command):  # type: ignore[misc]
-    """Read the Guildmaster's bounty board.
+    """Read the quests a giver here is offering.
 
     Usage:
       quests
 
-    Lists each standing bounty and your progress on it. Use 'accept <bounty>'
-    to take one and 'turnin <bounty>' to claim its reward once it is done.
+    Lists each quest the giver in this room offers and your progress on it. Use
+    'accept <quest>' to take one and 'turnin <quest>' to claim its reward once it
+    is done.
     """
 
     key = "quests"
@@ -75,16 +110,20 @@ class CmdQuests(Command):  # type: ignore[misc]
 
     def func(self) -> None:
         caller = self.caller
-        if not _at_guildmaster(caller):
-            caller.msg("There is no bounty board here; the Guildmaster keeps one at the guildhall.")
+        giver = _giver_here(caller)
+        if giver is None:
+            caller.msg("There is no one here offering quests.")
             return
         log = _quest_log(caller)
         level = _level(caller)
+        has_evidence = _has_evidence(caller)
         now = time.time()
-        lines = ["The Guildmaster's bounty board:"]
-        for quest in quests_from(GUILDMASTER):
+        lines = ["Quests offered here:"]
+        for quest in quests_from(giver):
             entry = log.get(quest.id)
-            state = qstate.status(quest, entry, level=level, now=now, log=log)
+            state = qstate.status(
+                quest, entry, level=level, now=now, log=log, has_evidence=has_evidence
+            )
             lines.append(f"  {quest.title} [{quest.id}] - {state}")
             if state == qstate.ACTIVE and entry is not None:
                 owed = qstate.remaining(quest, entry["progress"])
@@ -103,10 +142,10 @@ class CmdQuests(Command):  # type: ignore[misc]
 
 
 class CmdAccept(Command):  # type: ignore[misc]
-    """Accept one of the Guildmaster's bounties.
+    """Accept a quest from the giver in this room.
 
     Usage:
-      accept <bounty>
+      accept <quest>
     """
 
     key = "accept"
@@ -118,43 +157,50 @@ class CmdAccept(Command):  # type: ignore[misc]
 
     def func(self) -> None:
         caller = self.caller
-        if not _at_guildmaster(caller):
-            caller.msg("There is no one here to take a bounty from.")
+        giver = _giver_here(caller)
+        if giver is None:
+            caller.msg("There is no one here to take a quest from.")
             return
         if not self.target:
-            caller.msg("Accept which bounty? See 'quests' for the board.")
+            caller.msg("Accept which quest? See 'quests' for what is offered here.")
             return
-        quest = _match_offered(self.target)
+        quest = _match_offered(self.target, giver)
         if quest is None:
-            caller.msg(f"The Guildmaster offers no bounty called '{self.target}'.")
+            caller.msg(f"No quest called '{self.target}' is offered here.")
             return
         log = _quest_log(caller)
         entry = log.get(quest.id)
+        level = _level(caller)
+        has_evidence = _has_evidence(caller)
         now = time.time()
-        if not qstate.can_accept(quest, entry, level=_level(caller), now=now, log=log):
-            state = qstate.status(quest, entry, level=_level(caller), now=now, log=log)
+        if not qstate.can_accept(
+            quest, entry, level=level, now=now, log=log, has_evidence=has_evidence
+        ):
+            state = qstate.status(
+                quest, entry, level=level, now=now, log=log, has_evidence=has_evidence
+            )
             if state == qstate.ACTIVE:
                 caller.msg(f"You have already taken '{quest.title}'.")
             elif state == qstate.COMPLETE:
-                caller.msg(f"You have done '{quest.title}'; it is not yet posted again.")
+                caller.msg(f"You have done '{quest.title}'; it is not offered again yet.")
             else:
-                caller.msg(f"You are not yet seasoned enough for '{quest.title}'.")
+                caller.msg(f"You are not yet eligible for '{quest.title}'.")
             return
         log[quest.id] = qstate.accept(quest, entry)
         caller.db.quests = log
         kills = qstate.kill_steps(quest)
         if kills:
             step = kills[0]
-            caller.msg(f"You take the bounty '{quest.title}': slay {step.count} {step.faction}.")
+            caller.msg(f"You take '{quest.title}': slay {step.count} {step.faction}.")
         else:
-            caller.msg(f"You take the bounty '{quest.title}'.")
+            caller.msg(f"You take '{quest.title}'.")
 
 
 class CmdTurnin(Command):  # type: ignore[misc]
-    """Turn in a completed bounty to the Guildmaster for its reward.
+    """Turn in a completed quest to the giver in this room for its reward.
 
     Usage:
-      turnin <bounty>
+      turnin <quest>
     """
 
     key = "turnin"
@@ -163,6 +209,27 @@ class CmdTurnin(Command):  # type: ignore[misc]
 
     def parse(self) -> None:
         self.target = self.args.strip()
+
+    def _fire_season_global(self, caller: Any, quest: Quest) -> bool:
+        """Fire ``quest``'s season-global effect; return whether it succeeded.
+
+        ``SEASON_EXPOSE_PRIEST`` reports the spy with the caller's evidence and
+        succeeds only on the report that trips the server-global exposure (R4);
+        a rejected report (too little evidence, no spy, or already exposed)
+        returns False so the turn-in is held back. ``SEASON_END_SEASON`` ends the
+        season early (R6) and always succeeds. A quest with no season-global tag,
+        or one whose manager is not live, succeeds vacuously.
+        """
+        if quest.season_global == SEASON_EXPOSE_PRIEST:
+            managers = search_script("priest_manager")
+            if not managers:
+                return False
+            return bool(managers[0].report(_player_evidence(caller)))
+        if quest.season_global == SEASON_END_SEASON:
+            managers = search_script("season_manager")
+            if managers:
+                managers[0].end_season(reason="shrine_destroyed")
+        return True
 
     def _apply_reward(self, caller: Any, quest: Quest) -> None:
         """Pay the gp/xp reward and apply the completion standing shift (R2)."""
@@ -177,30 +244,37 @@ class CmdTurnin(Command):  # type: ignore[misc]
 
     def func(self) -> None:
         caller = self.caller
-        if not _at_guildmaster(caller):
-            caller.msg("There is no one here to claim a bounty from.")
+        giver = _giver_here(caller)
+        if giver is None:
+            caller.msg("There is no one here to claim a quest from.")
             return
         if not self.target:
-            caller.msg("Turn in which bounty? See 'quests' for the board.")
+            caller.msg("Turn in which quest? See 'quests' for what is offered here.")
             return
-        quest = _match_offered(self.target)
+        quest = _match_offered(self.target, giver)
         if quest is None:
-            caller.msg(f"The Guildmaster offers no bounty called '{self.target}'.")
+            caller.msg(f"No quest called '{self.target}' is offered here.")
             return
         log = _quest_log(caller)
         entry = log.get(quest.id)
         if entry is None or entry["state"] != qstate.ACTIVE:
-            caller.msg(f"You have not taken the bounty '{quest.title}'.")
+            caller.msg(f"You have not taken '{quest.title}'.")
             return
         if not qstate.steps_met(quest, entry["progress"]):
             owed = qstate.remaining(quest, entry["progress"])
             detail = ", ".join(f"{count} {faction}" for faction, count in owed.items())
             caller.msg(f"'{quest.title}' is not finished — still owed: {detail}.")
             return
+        if not self._fire_season_global(caller, quest):
+            caller.msg(f"'{quest.title}' cannot be completed yet — suspicions, not proof.")
+            return
         self._apply_reward(caller, quest)
         log[quest.id] = qstate.turn_in(quest, entry, now=time.time())
         caller.db.quests = log
-        caller.msg(
-            f"The Guildmaster pays you {quest.reward.gp} gp for '{quest.title}'. "
-            "Bank your coin in the Keep to earn its experience."
-        )
+        if quest.reward.gp:
+            caller.msg(
+                f"You complete '{quest.title}' and are paid {quest.reward.gp} gp. "
+                "Bank your coin in the Keep to earn its experience."
+            )
+        else:
+            caller.msg(f"You complete '{quest.title}'.")
