@@ -132,3 +132,21 @@ DETECT_EVIL_MIN_LEVEL = 5
 
 # Source label recorded for a strong proof obtained via Detect Evil.
 PROOF_DETECT_EVIL = "detect_evil"
+
+
+# ── Spy quest chain (spec §4) ────────────────────────────────────────────────
+#
+# While unexposed the spy offers benign-seeming quests flagged ``aids_cult`` in
+# the quest catalog (R9/M13). Doing the spy's bidding is a trap: completing
+# enough of them springs a scripted Caves ambush and brands the player a cult
+# collaborator, raising their standing with the cult (R2). This slice owns the
+# per-character chain mechanic; the catalog entries themselves land with M13.
+
+# Distinct spy quests a player must complete before the Caves ambush springs
+# (spec §4: "completing 3 or more spy quests").
+SPY_QUESTS_TO_AMBUSH = 3
+
+# The faction whose standing rises when a player does the spy's bidding (R2).
+# Mirrors the id in world.factions.config; duplicated here as a plain constant so
+# the priest plot need not import the faction package.
+CULT_FACTION_ID = "cult"

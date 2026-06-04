@@ -13,9 +13,11 @@ from random import Random
 
 import pytest
 
+from world.factions.state import FactionState
 from world.priest import config as cfg
-from world.priest import detection
+from world.priest import detection, quests
 from world.priest.evidence import Evidence
+from world.priest.quests import SpyQuestLog
 from world.priest.state import PriestState
 
 
@@ -233,12 +235,57 @@ def test_evidence_is_per_character() -> None:
     assert bob.clue_count == 0
 
 
-# ── Later M12 slices unskip these as they land ────────────────────────────────
+# ── Spy quest chain (spec §4, §7 behavior 10) ─────────────────────────────────
 
 
-@pytest.mark.skip(reason="M12 spy-quest-chain slice")
 def test_three_spy_quests_trigger_ambush() -> None:
     """WHEN a player completes a third spy quest THEN a Caves ambush fires and cult standing rises."""
+    log = SpyQuestLog()
+
+    # The first two aids_cult quests are benign-seeming: no ambush yet.
+    assert quests.complete_spy_quest(log, "deliver_sealed_package") is False
+    assert quests.complete_spy_quest(log, "minister_to_cultist") is False
+    assert log.completed_count == 2
+    assert log.ambush_sprung is False
+
+    # The third distinct spy quest springs the scripted Caves ambush.
+    assert quests.complete_spy_quest(log, "fetch_poison_herb") is True
+    assert log.ambush_sprung is True
+    assert log.completed_count == 3
+
+    # The ambush fires exactly once: a fourth quest does not re-trigger it.
+    assert quests.complete_spy_quest(log, "fourth_errand") is False
+    assert log.ambush_sprung is True
+
+    # Branded a cult collaborator: the consequence raises cult standing (R2).
+    fac = FactionState()
+    assert fac.get_standing(cfg.CULT_FACTION_ID, "alice") == 0
+    fac.apply_quest_aid(cfg.CULT_FACTION_ID, "alice")
+    assert fac.get_standing(cfg.CULT_FACTION_ID, "alice") > 0
+
+
+def test_spy_quest_log_ignores_repeat_completions() -> None:
+    """WHEN the same spy quest is turned in twice THEN it counts once toward the ambush."""
+    log = SpyQuestLog()
+    assert quests.complete_spy_quest(log, "deliver_sealed_package") is False
+    # Re-turning the same quest does not advance the chain.
+    assert quests.complete_spy_quest(log, "deliver_sealed_package") is False
+    assert log.completed_count == 1
+    assert log.ambush_sprung is False
+
+
+def test_spy_quest_log_is_per_character() -> None:
+    """WHEN one player collaborates THEN another player's chain is unaffected."""
+    alice = SpyQuestLog()
+    bob = SpyQuestLog()
+
+    quests.complete_spy_quest(alice, "deliver_sealed_package")
+    quests.complete_spy_quest(alice, "minister_to_cultist")
+    quests.complete_spy_quest(alice, "fetch_poison_herb")
+
+    assert alice.ambush_sprung is True
+    assert bob.completed_count == 0
+    assert bob.ambush_sprung is False
 
 
 @pytest.mark.skip(reason="M12 exposure slice")
