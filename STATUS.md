@@ -1,5 +1,6 @@
-M11 COMPLETE & MERGED (PR #17, merge commit abcca82) — paused before M12, which
-is NOT started (per user direction 2026-06-02).
+M11 COMPLETE & MERGED (PR #17, merge commit abcca82). M12 is the next milestone
+and is cleared to start (the earlier do-not-auto-start hold was lifted
+2026-06-03).
 
 The Shrine of Evil Chaos is built (the first serial milestone after the fan-out
 was set aside — promising idea, but the M10 implementation caused more problems
@@ -16,7 +17,7 @@ Built serially in four spec→test→implement slices (rooms+exits, mobs+boss,
 24h-reset wiring, altar→end_season), per docs/specs/zones/shrine.md. The
 rogue/unreviewed M11 draft in ../kotb-wt/m10-orc was NOT used.
 
-Next (when resumed — do NOT auto-start): M12 — the disguised
+Next: M12 — the disguised
 priest (priest_manager: seasonal rotation with no back-to-back repeat, clue
 assignment, the four detection paths, the spy quest chain + Caves ambush,
 exposure → the Shrine boss_lair boss, season reset). Build per
