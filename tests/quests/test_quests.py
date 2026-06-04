@@ -84,6 +84,39 @@ def test_progress_resets_history_persists_on_season() -> None:
     assert reaccepted["progress"] == qstate.fresh_progress(quest)  # progress reset
 
 
+def test_deed_only_quest_needs_a_world_event_flag() -> None:
+    """Exploit fix — a deed-only quest cannot complete until a world event flags its deed.
+
+    ``p_supplies`` (deliver rations) has no kill steps and no evidence gate, so it
+    must wait for the world event that satisfies the deed; ``record_deed`` is the
+    seam that sets the flag.
+    """
+    quest = CATALOG["p_supplies"]
+    assert qstate.requires_deed_flag(quest) is True
+    entry = qstate.accept(quest, None)
+    assert qstate.deed_satisfied(entry) is False  # fresh — deed not yet done
+    log = {quest.id: entry}
+    assert qstate.record_deed(log, quest.id) is True  # the world event fires
+    assert qstate.deed_satisfied(log[quest.id]) is True
+    assert qstate.record_deed(log, quest.id) is False  # idempotent — no further change
+
+
+def test_evidence_gated_report_is_exempt_from_deed_flag() -> None:
+    """Exploit fix — a deed-is-the-turn-in report stays gated by evidence, not a flag.
+
+    ``c_expose_priest`` (report the spy) and ``cu_suspicions`` (hear the Curate's
+    doubts) are deed-only yet evidence-gated, so they need no prior deed flag.
+    """
+    assert qstate.requires_deed_flag(CATALOG["c_expose_priest"]) is False
+    assert qstate.requires_deed_flag(CATALOG["cu_suspicions"]) is False
+
+
+def test_kill_quest_needs_no_deed_flag() -> None:
+    """Exploit fix — a kill-tracked quest is gated by its kill steps, never a deed flag."""
+    assert qstate.requires_deed_flag(CATALOG["g_kobold_cull"]) is False
+    assert qstate.requires_deed_flag(CATALOG["h_lions"]) is False
+
+
 # ── §9.3-4, §9.6-9 — cross-system effects on turn-in (engine) ─────────────────
 
 
@@ -239,10 +272,25 @@ def test_evidence_grades_gate_per_quest(managers_and_player: tuple[Any, Any]) ->
 
 
 @pytest.mark.django_db
-def test_destroy_shrine_ends_season(managers_and_player: tuple[Any, Any]) -> None:
-    """§9.9 — WHEN destroy-Shrine is turned in THEN the season ends early."""
+def test_destroy_shrine_turnin_grants_reward_not_end_season(
+    managers_and_player: tuple[Any, Any],
+) -> None:
+    """§9.9 — WHEN destroy-Shrine is turned in THEN it pays the reward but does NOT end the season.
+
+    Per review F4 the canonical ``end_season`` trigger is the ``Altar.at_destruction``
+    hook, not the quest turn-in; the quest's season-global path is therefore inert and
+    only the reward (1000 gp + the holy relic) is granted.
+    """
     _factions, player = managers_and_player
     season = search_script("season_manager")[0]
     closing = season.db.season_number
-    assert CmdTurnin()._fire_season_global(player, CATALOG["c_destroy_shrine"]) is True
-    assert season.db.season_number == closing + 1
+    quest = CATALOG["c_destroy_shrine"]
+    coin0 = int(player.db.coin or 0)
+
+    # The season-global path no longer ends the season for this quest.
+    assert CmdTurnin()._fire_season_global(player, quest) is True
+    assert season.db.season_number == closing
+
+    CmdTurnin()._apply_reward(player, quest)
+    assert int(player.db.coin) == coin0 + 1000
+    assert "a holy relic" in (player.db.quest_items or [])

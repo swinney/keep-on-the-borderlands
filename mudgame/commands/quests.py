@@ -8,13 +8,20 @@ resolved by ``_giver_here``. Each giver offers its slice of the catalog
 (``world.quests.state``) derives availability and tracks kill progress, credited
 by ``Mob.at_death`` (``typeclasses.npcs``).
 
+A deed-only quest (no kill steps) cannot be accepted and instantly turned in:
+``turnin`` refuses until a world event has set the entry's deed-completion flag
+(``world.quests.state.record_deed``). The exception is a quest whose deed *is*
+the turn-in interaction — ``c_expose_priest`` (reporting the spy), gated by its
+evidence requirement instead.
+
 Completion fires the quest's cross-system effects (quests.md §8): a coin/XP
-reward, the R2 faction standing shift, and — for the two Castellan story quests —
-the **season-global** events. ``c_expose_priest`` reports the disguised spy to
-the Castellan with the player's gathered evidence, tripping the server-global
-exposure (R4); ``c_destroy_shrine`` cleanses the Altar of Chaos, ending the
-season early (R6). Both are delivered by their global-Script managers, so the
-turn-in only reaches them when the manager is live.
+reward, the R2 faction standing shift, and the one season-global turn-in event.
+``c_expose_priest`` reports the disguised spy to the Castellan with the player's
+gathered evidence, tripping the server-global exposure (R4) — delivered by the
+priest_manager, so the turn-in only reaches it when the manager is live.
+``c_destroy_shrine`` grants only its reward here, gated on the shrine-destroyed
+deed flag; the season-ending ``end_season`` is fired by the canonical
+``Altar.at_destruction`` hook (typeclasses.objects), not the quest (review F4).
 """
 
 from __future__ import annotations
@@ -33,7 +40,6 @@ from world.quests import state as qstate
 from world.quests.config import (
     EVIDENCE_CURATE,
     GIVERS,
-    SEASON_END_SEASON,
     SEASON_EXPOSE_PRIEST,
     Quest,
     quests_from,
@@ -230,24 +236,22 @@ class CmdTurnin(Command):  # type: ignore[misc]
         self.target = self.args.strip()
 
     def _fire_season_global(self, caller: Any, quest: Quest) -> bool:
-        """Fire ``quest``'s season-global effect; return whether it succeeded.
+        """Fire ``quest``'s evidence-gated season-global effect; return success.
 
-        ``SEASON_EXPOSE_PRIEST`` reports the spy with the caller's evidence and
-        succeeds only on the report that trips the server-global exposure (R4);
-        a rejected report (too little evidence, no spy, or already exposed)
-        returns False so the turn-in is held back. ``SEASON_END_SEASON`` ends the
-        season early (R6) and always succeeds. A quest with no season-global tag,
-        or one whose manager is not live, succeeds vacuously.
+        Only ``SEASON_EXPOSE_PRIEST`` acts at turn-in: it reports the spy with the
+        caller's evidence and succeeds only on the report that trips the
+        server-global exposure (R4); a rejected report (too little evidence, no spy,
+        or already exposed) returns False so the turn-in is held back.
+        ``c_destroy_shrine``'s ``end_season`` is *not* fired here — the canonical R6
+        trigger is the ``Altar.at_destruction`` hook (review F4), so its turn-in only
+        grants the reward (gated on the shrine-destroyed deed flag). Any other quest
+        succeeds vacuously.
         """
         if quest.season_global == SEASON_EXPOSE_PRIEST:
             managers = search_script("priest_manager")
             if not managers:
                 return False
             return bool(managers[0].report(_player_evidence(caller)))
-        if quest.season_global == SEASON_END_SEASON:
-            managers = search_script("season_manager")
-            if managers:
-                managers[0].end_season(reason="shrine_destroyed")
         return True
 
     def _apply_reward(self, caller: Any, quest: Quest) -> None:
@@ -316,18 +320,25 @@ class CmdTurnin(Command):  # type: ignore[misc]
         )
         caller.msg("Too late, you sense the trap — cultists erupt from the Caves in ambush!")
 
-    def func(self) -> None:
-        caller = self.caller
+    def _resolve_target(self, caller: Any) -> Quest | None:
+        """The quest the caller named for turn-in, or None after messaging why not."""
         giver = _giver_here(caller)
         if giver is None:
             caller.msg("There is no one here to claim a quest from.")
-            return
+            return None
         if not self.target:
             caller.msg("Turn in which quest? See 'quests' for what is offered here.")
-            return
+            return None
         quest = _match_offered(self.target, giver)
         if quest is None:
             caller.msg(f"No quest called '{self.target}' is offered here.")
+            return None
+        return quest
+
+    def func(self) -> None:
+        caller = self.caller
+        quest = self._resolve_target(caller)
+        if quest is None:
             return
         log = _quest_log(caller)
         entry = log.get(quest.id)
@@ -338,6 +349,9 @@ class CmdTurnin(Command):  # type: ignore[misc]
             owed = qstate.remaining(quest, entry["progress"])
             detail = ", ".join(f"{count} {faction}" for faction, count in owed.items())
             caller.msg(f"'{quest.title}' is not finished — still owed: {detail}.")
+            return
+        if qstate.requires_deed_flag(quest) and not qstate.deed_satisfied(entry):
+            caller.msg(f"'{quest.title}' is not done — the deed itself remains unfulfilled.")
             return
         if not self._fire_season_global(caller, quest):
             caller.msg(f"'{quest.title}' cannot be completed yet — suspicions, not proof.")

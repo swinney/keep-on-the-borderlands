@@ -23,7 +23,7 @@ hostile to the giver tribe.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from world.factions.config import STANDING_LADDER, band_for
 from world.quests.config import BOUNTY_COOLDOWN_SECONDS, KillStep, Quest, StandingGate
@@ -62,6 +62,10 @@ class QuestEntry(TypedDict):
     progress: dict[str, int]  # faction -> kills credited so far
     times_completed: int
     cooldown_until: float  # epoch seconds; 0.0 when not on cooldown
+    # Set True by the world event that satisfies a deed objective (``record_deed``).
+    # Absent on entries minted before deeds were tracked, so always read via
+    # ``deed_satisfied``/``.get``.
+    deed_done: NotRequired[bool]
 
 
 QuestLog = dict[str, QuestEntry]
@@ -79,6 +83,35 @@ def steps_met(quest: Quest, progress: Mapping[str, int]) -> bool:
     real completion is gated by the engine event that satisfies the deed.
     """
     return all(progress.get(step.faction, 0) >= step.count for step in kill_steps(quest))
+
+
+def is_deed_only(quest: Quest) -> bool:
+    """True when ``quest`` has no kill steps — a pure world-event deed (quests.md §1).
+
+    The kill-tracker has nothing to count for such a quest, so ``steps_met`` is
+    vacuously true; its real completion rides a deed-completion flag set by the
+    world event that satisfies the deed (``record_deed``).
+    """
+    return not kill_steps(quest)
+
+
+def requires_deed_flag(quest: Quest) -> bool:
+    """True when turn-in must wait for a world-event deed-completion flag.
+
+    Closes the deed-quest turn-in exploit (tasks.md M13): a deed-only quest cannot
+    be accepted and instantly turned in for its reward — ``commands.quests`` refuses
+    the turn-in until a world event has set the entry's ``deed_done`` flag
+    (``record_deed``). The one exception is a quest whose deed *is* the turn-in
+    interaction — an evidence-gated report such as ``c_expose_priest`` (report the
+    spy) or ``cu_suspicions`` (hear the Curate's doubts) — which stays gated by its
+    evidence requirement, not a prior flag (quests.md §3-§4).
+    """
+    return is_deed_only(quest) and quest.evidence_min is None
+
+
+def deed_satisfied(entry: QuestEntry) -> bool:
+    """True when a world event has marked this entry's deed done."""
+    return bool(entry.get("deed_done", False))
 
 
 def remaining(quest: Quest, progress: Mapping[str, int]) -> dict[str, int]:
@@ -193,6 +226,7 @@ def accept(quest: Quest, entry: QuestEntry | None) -> QuestEntry:
         "progress": fresh_progress(quest),
         "times_completed": prior,
         "cooldown_until": 0.0,
+        "deed_done": False,
     }
 
 
@@ -217,7 +251,25 @@ def turn_in(quest: Quest, entry: QuestEntry, *, now: float) -> QuestEntry:
         "progress": dict(entry["progress"]),
         "times_completed": entry["times_completed"] + 1,
         "cooldown_until": cooldown,
+        "deed_done": deed_satisfied(entry),
     }
+
+
+def record_deed(log: QuestLog, quest_id: str) -> bool:
+    """Mark the active ``quest_id`` entry's deed done (mutates ``log``); return change.
+
+    The seam a world event calls when it satisfies a deed objective — the Altar
+    shattering (the shrine-destroyed marker), rations delivered, a captive escorted
+    home, a spy package dropped. Returns True only when it actually flips an active
+    entry's flag, so the caller can skip the write-back when nothing changed (mirrors
+    ``record_faction_kill``). No-op for a missing, non-active, or already-flagged
+    entry.
+    """
+    entry = log.get(quest_id)
+    if entry is None or entry["state"] != ACTIVE or deed_satisfied(entry):
+        return False
+    entry["deed_done"] = True
+    return True
 
 
 def record_faction_kill(log: QuestLog, catalog: Mapping[str, Quest], faction: str) -> bool:

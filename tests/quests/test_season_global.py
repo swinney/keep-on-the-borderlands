@@ -20,6 +20,7 @@ from evennia.utils.search import search_object_by_tag
 
 from commands.quests import CmdAccept, CmdTurnin
 from world.priest import config as priest_cfg
+from world.quests import state as qstate
 from world.zones import keep
 from world.zones.builder import EXIT_CATEGORY, NPC_CATEGORY, ROOM_CATEGORY, find_npc
 
@@ -122,12 +123,9 @@ def test_expose_priest_unavailable_without_evidence(keep_with_managers: Any) -> 
             player.delete()
 
 
-@pytest.mark.django_db
-def test_destroy_shrine_ends_season_and_pays_reward(keep_with_managers: Any) -> None:
-    """§9.9 — cleansing the Altar ends the season early and grants the reward."""
-    _priest, season = keep_with_managers
-
-    player = _make_player(_audience_room(), "shrine-cleanser")
+def _shrine_cleanser(room: Any) -> Any:
+    """A player eligible for ``c_destroy_shrine`` (L7 + the minotaur prereq met)."""
+    player = _make_player(room, "shrine-cleanser")
     player.traits.level.base = 7  # meets the quest's min_level
     # The quest requires the Shrine passage first won via the minotaur bounty.
     player.db.quests = {
@@ -138,6 +136,19 @@ def test_destroy_shrine_ends_season_and_pays_reward(keep_with_managers: Any) -> 
             "cooldown_until": 0.0,
         }
     }
+    return player
+
+
+@pytest.mark.django_db
+def test_destroy_shrine_refused_without_the_deed(keep_with_managers: Any) -> None:
+    """Exploit fix — accepting then immediately turning in c_destroy_shrine is refused.
+
+    The deed (shattering the Altar) is a world event that has not happened, so the
+    turn-in is held back: no reward, the quest stays active, and the season does NOT
+    end (the season-ending trigger is the Altar hook, never the turn-in).
+    """
+    _priest, season = keep_with_managers
+    player = _shrine_cleanser(_audience_room())
     coin_before = int(player.db.coin or 0)
     closing_season = season.db.season_number
     try:
@@ -146,10 +157,41 @@ def test_destroy_shrine_ends_season_and_pays_reward(keep_with_managers: Any) -> 
 
         _run(CmdTurnin, player, DESTROY_SHRINE)
 
-        # The season really ended: the counter advanced past the turn-in.
-        assert season.db.season_number == closing_season + 1
+        # Held back: still active, unpaid, and the season is untouched.
+        assert player.db.quests[DESTROY_SHRINE]["state"] == "active"
+        assert int(player.db.coin or 0) == coin_before
+        assert season.db.season_number == closing_season
+    finally:
+        if player.pk is not None:
+            player.delete()
+
+
+@pytest.mark.django_db
+def test_destroy_shrine_pays_reward_after_the_deed(keep_with_managers: Any) -> None:
+    """§9.9 — once the shrine-destroyed deed flag is set, the turn-in pays its reward.
+
+    Per review F4 the quest turn-in grants only the reward (1000 gp + the holy relic);
+    the season-ending ``end_season`` is fired by the canonical ``Altar.at_destruction``
+    hook, so the season counter does not advance from the turn-in itself.
+    """
+    _priest, season = keep_with_managers
+    player = _shrine_cleanser(_audience_room())
+    coin_before = int(player.db.coin or 0)
+    closing_season = season.db.season_number
+    try:
+        _run(CmdAccept, player, DESTROY_SHRINE)
+        # The Altar shattering (deferred world event) sets the deed flag.
+        quests = dict(player.db.quests)
+        assert qstate.record_deed(quests, DESTROY_SHRINE) is True
+        player.db.quests = quests
+
+        _run(CmdTurnin, player, DESTROY_SHRINE)
+
         assert player.db.quests[DESTROY_SHRINE]["state"] == "complete"
         assert int(player.db.coin or 0) == coin_before + 1000
+        assert "a holy relic" in (player.db.quest_items or [])
+        # The turn-in does not end the season — that is the Altar hook's job.
+        assert season.db.season_number == closing_season
     finally:
         if player.pk is not None:
             player.delete()
