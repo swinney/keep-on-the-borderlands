@@ -241,6 +241,14 @@ Implementation slices (spec §7, each spec→test→impl, dependency order):
 - [x] M16 fix (CI failure): `tests/acceptance/test_latency_50.py` FAILED on the CI runner — `assert max_ms < 90` got **141ms** (p95 passed at ~3.7ms locally; the single MAX sample spiked on GitHub's shared runner). Asserting *max* latency is brittle on noisy infra — latency SLOs are p50/p95/p99, never worst-case-ever. Fix robustly (NOT by fudging the budget): (a) add a **warmup** to `world.build.loadharness.run_load` (drive a few commands before timing, so cold-start/import/JIT cost isn't sampled) and exclude warmup from `LoadReport.latency`; (b) make **p95 the gating criterion assertion** (`p95_ms < P95_BUDGET_MS`, budget under the 100ms criterion with margin) — p95 ~3.7ms genuinely meets `<100ms`; (c) **report max but do not gate on a tight max budget** (drop `MAX_BUDGET_MS` or assert only a loose anti-hang sanity bound, documented), since max is infra-dominated. Update `docs/specs/acceptance.md` §2 to record the warmup + p95-as-criterion choice honestly. If p95 itself exceeds 100ms that is a real unmet criterion → escalate (CLAUDE.md §3). Verify the FULL suite locally, but note the real check is CI green on re-push (the failure is CI-runner-specific). Also: `tests/acceptance/conftest.py` joins the deferred "Django-free pure tests in mixed dirs" cross-cutting follow-up (Copilot PR #22 F2) — do NOT diverge one conftest now.
 - [x] ⛔ MILESTONE GATE (M16 → review) — **passed**: acceptance & scale reviewed and merged via PR #23 (CI green after a CI-runner-only latency-max flake was fixed via warmup + p95-gating; Copilot F1 false-positive pushed back, F2 folded into the deferred conftest item). Built free-run by the loop (turns 80–86, Opus), spec-first. **v1 ACCEPTANCE DEMONSTRABLY MET** — all eight OpenSpec criteria C1–C8 machine-checked (`tests/acceptance/test_criteria_coverage.py`).
 
+## M17 — Deferred polish & hardening (post-v1, optional)
+
+v1 acceptance is met (M16); these are the deferred-follow-up items, now driven
+one per branch/PR for focused review. Each is `spec(exists)→test→impl`, gated.
+
+- [ ] M17a — **Django-free conftests**: gate the `scope="session", autouse=True` Evennia bootstrap to `@pytest.mark.django_db` tests across **all** engine conftests (`tests/quests`, `tests/zones`, `tests/economy`, `tests/world_build`, `tests/acceptance`), so a pure test (e.g. `test_xp_pacing.py`) run in isolation does NOT boot Django (verify with `pytest --setup-show` on a pure test) while full-suite runs stay green. The fix should be uniform (don't diverge one conftest). Then check off the matching Deferred-follow-ups item. Per the deferred note (Copilot PR #8, #22 F2).
+- [ ] ⛔ MILESTONE GATE (M17a → review) — write "M17a Django-free conftests complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
+
 ## Deferred follow-ups
 
 - [x] **World-build / runtime orchestrator** ⭐ — **DELIVERED by M15** (PR #22):
