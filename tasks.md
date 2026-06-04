@@ -238,6 +238,7 @@ Implementation slices (spec §7, each spec→test→impl, dependency order):
 - [x] M16 slice 1 — XP-pacing projection: `world/rules/pacing.py` (pure, no Evennia) — a deterministic `project_arc(char_class, arc) → ArcResult` over the existing cores (`economy.secure_xp` treasure-as-XP + OSE kill-XP, resolved via `progression.level_for_xp`), with the representative-arc + target-band as **named constants**. Tune ONLY the economy/pacing knobs (`economy.py` sinks, `pacing.py` arc constants) to land the target band (~L9–L10 for a representative class over a 6-week season); never retune the OSE XP table. `tests/acceptance/test_xp_pacing.py` pins the final level + per-week curve (regression-guard) and asserts the OSE thresholds are untouched. Pure, Django-free. Per spec §3, §6.2-§6.3.
 - [x] M16 slice 2 — C8 latency measurement: `tests/acceptance/test_latency_50.py` (engine) drives `loadharness.run_load(50)` against `build_all()`'s populated world; asserts honesty (`recall_built`, `driven_sessions==50`, `commands_run==50*len(mix)`, populated world) AND `latency.p95_ms`/`max_ms` under named budgets set from an observed baseline with margin under 100ms. If the observed p95 exceeds 100ms the criterion is UNMET — escalate via `docs/questions.md`, do NOT weaken the budget (spec §2.4, CLAUDE.md §3). Per spec §2, §6.1.
 - [x] M16 slice 3 — criteria-coverage checklist: `tests/acceptance/test_criteria_coverage.py` encodes the §4 C1–C8 table as data (criterion → proof test node ids) and asserts each mapped proof test exists and is collectable (all eight mapped; a renamed/removed proof fails the test). References existing suites, does not re-run/duplicate them. The capstone declaring v1 acceptance demonstrably met. Per spec §4, §6.4.
+- [ ] M16 fix (CI failure): `tests/acceptance/test_latency_50.py` FAILED on the CI runner — `assert max_ms < 90` got **141ms** (p95 passed at ~3.7ms locally; the single MAX sample spiked on GitHub's shared runner). Asserting *max* latency is brittle on noisy infra — latency SLOs are p50/p95/p99, never worst-case-ever. Fix robustly (NOT by fudging the budget): (a) add a **warmup** to `world.build.loadharness.run_load` (drive a few commands before timing, so cold-start/import/JIT cost isn't sampled) and exclude warmup from `LoadReport.latency`; (b) make **p95 the gating criterion assertion** (`p95_ms < P95_BUDGET_MS`, budget under the 100ms criterion with margin) — p95 ~3.7ms genuinely meets `<100ms`; (c) **report max but do not gate on a tight max budget** (drop `MAX_BUDGET_MS` or assert only a loose anti-hang sanity bound, documented), since max is infra-dominated. Update `docs/specs/acceptance.md` §2 to record the warmup + p95-as-criterion choice honestly. If p95 itself exceeds 100ms that is a real unmet criterion → escalate (CLAUDE.md §3). Verify the FULL suite locally, but note the real check is CI green on re-push (the failure is CI-runner-specific). Also: `tests/acceptance/conftest.py` joins the deferred "Django-free pure tests in mixed dirs" cross-cutting follow-up (Copilot PR #22 F2) — do NOT diverge one conftest now.
 - [ ] ⛔ MILESTONE GATE (M16 → review) — write "M16 acceptance complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 ## Deferred follow-ups
@@ -258,13 +259,14 @@ Implementation slices (spec §7, each spec→test→impl, dependency order):
   this needs the round loop's declare→resolve phases. Re-enables the skipped
   `tests/combat/test_combat.py::test_damage_disrupts_unresolved_cast`.
 
-- [ ] **Pure tests run Django-free in mixed dirs** (Copilot PR #8): the
+- [ ] **Pure tests run Django-free in mixed dirs** (Copilot PR #8, #22 F2): the
   `scope="session", autouse=True` bootstrap in the engine conftests (`tests/quests`,
-  `tests/zones`, `tests/economy`) pulls `django_db_setup` into the *pure* tests in
-  those dirs, so running one in isolation boots Evennia (verified via
-  `pytest --setup-show`). Full-suite runs are unaffected. Fix consistently across
-  all seven engine conftests (gate the bootstrap to `@pytest.mark.django_db` tests)
-  rather than diverging one — a cross-cutting test-infra change, deferred from M9.
+  `tests/zones`, `tests/economy`, `tests/world_build`, `tests/acceptance`) pulls
+  `django_db_setup` into the *pure* tests in those dirs (e.g. `test_xp_pacing.py`),
+  so running one in isolation boots Evennia (verified via `pytest --setup-show`).
+  Full-suite runs are unaffected. Fix consistently across all engine conftests
+  (gate the bootstrap to `@pytest.mark.django_db` tests) rather than diverging one
+  — a cross-cutting test-infra change, deferred from M9.
 
 - [ ] **Quest runtime — giver resolution + deed-completion event hooks**
   (deferred from M13; depends on the spawner/world-build layer). Two pieces, both

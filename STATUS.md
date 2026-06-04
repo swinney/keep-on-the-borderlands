@@ -1,5 +1,4 @@
-M16 implementation in progress — loop building the acceptance slices (XP-pacing
-projection → 50-session latency measurement → criteria-coverage checklist) before
-the M16 review gate. Spec approved (docs/specs/acceptance.md). If a criterion is
-unmet (p95 ≥ 100ms, or no pacing-knob lands the band), the loop escalates rather
-than weakening the test.
+M16 CI-fix in progress — loop making the C8 latency test robust to CI-runner
+noise (warmup + gate on p95, report max without a brittle tight bound) after the
+50-session max spiked to 141ms on GitHub's shared runner. Criterion genuinely met
+(p95 ~3.7ms < 100ms); the fix corrects the test statistic, not the budget.
