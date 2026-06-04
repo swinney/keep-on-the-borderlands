@@ -140,6 +140,9 @@ def build_npcs(zone: str, npcs: list[NpcRecord], placement: dict[str, str]) -> N
         npc.db.npc_key = record["key"]
         npc.db.sdesc = record["sdesc"]
         npc.db.role = record["role"]
+        # Quest-giver key (world-build §8): set on a giver NPC, None otherwise.
+        # Written unconditionally so a rebuild that drops the key clears it.
+        npc.db.giver_key = record.get("giver_key")
         inventory = record.get("inventory")
         if inventory is not None:
             npc.db.inventory = list(inventory)

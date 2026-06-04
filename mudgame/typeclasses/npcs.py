@@ -54,6 +54,9 @@ class Mob(ObjectParent, DefaultCharacter):
         # death is reported to the repop_manager so the tribe respawns and the
         # leadership halt + rival scouting can fire (repop.md §3-4).
         self.db.spawn_id = None
+        # Set on a chief/NPC who also gives quests (world-build §8, M13 F1); a
+        # giver-key from world.quests.config.GIVERS. None for the rank-and-file.
+        self.db.giver_key = None
 
     @property
     def computed_ac(self) -> int:

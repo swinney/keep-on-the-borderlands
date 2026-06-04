@@ -42,18 +42,21 @@ NPCS: list[NpcRecord] = [
         "name": "The Guildmaster",
         "sdesc": "the grizzled guildmaster of adventurers",
         "role": "guildmaster",
+        "giver_key": "guildmaster",
     },
     {
         "key": "castellan",
         "name": "The Castellan",
         "sdesc": "the iron-willed Castellan of the Keep",
         "role": "castellan",
+        "giver_key": "castellan",
     },
     {
         "key": "curate",
         "name": "The Curate",
         "sdesc": "the Keep's grey-robed Curate",
         "role": "curate",
+        "giver_key": "curate",
     },
     {
         "key": "anselm",

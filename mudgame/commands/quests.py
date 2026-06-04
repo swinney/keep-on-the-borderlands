@@ -44,23 +44,48 @@ from world.quests.config import (
     Quest,
     quests_from,
 )
+from world.rules.combat import is_dead
 
 
 def _giver_here(caller: Any) -> str | None:
-    """The quest-giver key for a giver ServiceNpc in the caller's room, or None.
+    """The quest-giver key for a live giver NPC/mob in the caller's room, or None.
 
-    Matches a service NPC whose ``role`` is a known catalog giver
-    (``world.quests.config.GIVERS``) — the Guildmaster, Castellan, Curate, etc.
-    Tribe chiefs are plain ``Mob``s in the caves, not service NPCs, so they are
-    never resolved here.
+    Resolves on an explicit ``db.giver_key`` (world-build §8, M13 F1) — a stable
+    key from ``world.quests.config.GIVERS`` set on every giver by the builder
+    (Guildmaster, Castellan, Curate, Hermit, …) or the spawner (a quest-giving
+    tribe chief). This is distinct from the display ``role``, so a giver whose
+    role is a descriptor (the Hermit, the spy's chapel role) is still reachable.
+
+    A tribe chief is both a kill target and a giver, so the giver must be **alive
+    and present**: a dead chief (killed, or its corpse lingering before respawn)
+    is skipped, and its quests are simply unavailable until it respawns (§8).
     """
     location = caller.location
     if location is None:
         return None
     for obj in location.contents:
-        if getattr(obj, "IS_SERVICE_NPC", False) and str(obj.db.role or "") in GIVERS:
-            return str(obj.db.role)
+        giver_key = obj.db.giver_key
+        if not giver_key or str(giver_key) not in GIVERS:
+            continue
+        if _giver_dead(obj):
+            continue
+        return str(giver_key)
     return None
+
+
+def _giver_dead(giver: Any) -> bool:
+    """Whether a giver NPC/mob is dead (0 HP), so unavailable as a giver (§8).
+
+    A static service NPC keeps its default 1-HP trait and never dies in the
+    no-combat Keep, so this only excludes a slain tribe chief whose corpse still
+    stands in its lair before the repop respawn. A giver with no HP trait is
+    treated as alive (defensive).
+    """
+    traits = getattr(giver, "traits", None)
+    hp = getattr(traits, "hp", None) if traits is not None else None
+    if hp is None:
+        return False
+    return is_dead(int(hp.value))
 
 
 def _quest_log(caller: Any) -> qstate.QuestLog:

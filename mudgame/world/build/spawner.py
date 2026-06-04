@@ -160,6 +160,10 @@ def spawn_mob(point: SpawnPoint, *, rng: random.Random | None = None) -> Any:
     mob.db.faction_id = record["faction"]
     mob.db.is_leader = point.is_leader
     mob.db.spawn_id = point.spawn_id
+    # Quest-giver key for a chief who also gives quests (world-build §8, M13 F1);
+    # None for the rank-and-file. ``commands.quests._giver_here`` resolves on it,
+    # so a living, present chief is reachable for quest/accept/turnin.
+    mob.db.giver_key = record.get("giver_key")
     mob.tags.add(point.spawn_id, category=SPAWN_INSTANCE_CATEGORY)
     return mob
 
