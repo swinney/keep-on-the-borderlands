@@ -206,8 +206,18 @@ populated world. This unblocks the M13 quest-giver/deed-event wiring and the
 three blocked M14 acceptance criteria. **Spec-first** — the spec is pivotal, so
 the loop drafts it and halts for review before any tests/implementation.
 
-- [x] Spec: write `docs/specs/world-build.md` — a runtime world-build/boot orchestrator that builds every zone and **spawns** mobs/NPCs/leaders from the existing registries (replacing the deliberate no-op `_instantiate`), wires quest-givers by an explicit giver-key (M13 F1) plus the world-event hooks that set deed-completion flags (M13 F3), and exposes a bootable, load-testable server. Sketch the `tests/world_build/` plan. Per PROMPT.md, write the spec and stop — no implementation this turn.
-- [ ] ⛔ MILESTONE GATE (M15 spec → review) — write "M15 world-build spec drafted — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
+- [x] Spec: write `docs/specs/world-build.md` — the runtime world-build/boot orchestrator (spawner, giver-key, deed hooks, bootable server). Spec only; no implementation.
+- [x] ⛔ MILESTONE GATE (M15 spec → review) — **passed**: spec reviewed and approved (operator-gated; commit 4af1c8a). Every factual claim verified against the live code (MobRecord/SpawnPoint shapes, Mob death→repop back-ref, season_manager reset ordering, register_zone/spawn_points, empty at_initial_setup); design preserves the managers→build→zones dependency direction, respects all locked decisions, and resolves M13 F1/F3/F4. Implementation slices (spec §14) below.
+
+Implementation slices (spec §14, each spec→test→impl, dependency order):
+
+- [ ] M15 slice 1 — `world/build/templates.py`: pure mob-template registry aggregating every zone's `MOB_TEMPLATES` into `template_key → MobRecord` (globally-unique keys, `KeyError` on unknown); `tests/world_build/test_templates.py` (pure, Django-free). Per spec §5, §13.1.
+- [ ] M15 slice 2 — `world/build/spawner.py`: `spawn_mob`/`spawn_scout`/`despawn` materializing a `MobRecord`+room into a live `Mob` (seeded-RNG HP roll, faction_id/is_leader/spawn_id wired), with spawn-instance-tag idempotency (§6-§7); rewire `repop_manager._instantiate*`/`_retreat_scout`/`_reset_shrine` restock to delegate; `tests/world_build/test_spawner.py`. Per spec §13.2-§13.3, §13.6.
+- [ ] M15 slice 3 — `world/build/orchestrator.py` `build_all()`: zone build order + manager bring-up + spawn registration + initial population pass, idempotent; wire `at_initial_setup()`; `tests/world_build/test_orchestrator.py` (incl. idempotency §13.4 + leadership-halt-with-real-scouts integration §13.5).
+- [ ] M15 slice 4 — giver-key (M13 F1): add `giver_key` to `NpcRecord`/`MobRecord`, builder + spawner write-through, `commands.quests._giver_here` resolves on `db.giver_key`; tribe-chief alive-and-present rule; `tests/world_build/test_givers.py` (§13.7).
+- [ ] M15 slice 5 — deed hooks (M13 F3): `world/build/events.py` + the in-world triggers (altar shrine-destroyed flag WITHOUT re-firing `end_season`, delivery/escort/spy-drop); `tests/world_build/test_deed_hooks.py` (§13.8).
+- [ ] M15 slice 6 — season-rebuild delegation (`rebuild_world`→orchestrator, despawn-stale→repopulate, persistence untouched) + the boot/headless-population check + load-harness sketch; unblocks the three M14 measurement tasks. Per spec §10-§11, §13.9-§13.10.
+- [ ] ⛔ MILESTONE GATE (M15 → review) — write "M15 world-build complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 ## Deferred follow-ups
 
