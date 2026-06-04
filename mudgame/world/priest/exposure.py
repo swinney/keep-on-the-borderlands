@@ -27,6 +27,8 @@ def report_to_castellan(state: PriestState, evidence: Evidence) -> str | None:
     — the caller uses it to relocate that NPC to the Shrine as a boss (spec §5
     step 3). Returns ``None`` when:
 
+    * there is no spy assigned yet (``spy_id is None``) — there is nothing to
+      expose, so the flag is left untouched; or
     * the reporter lacks sufficient evidence (one strong proof or three clue
       sightings) — the report is rejected, "suspicions, not proof" (spec §5
       step 1), and no exposure occurs; or
@@ -37,6 +39,8 @@ def report_to_castellan(state: PriestState, evidence: Evidence) -> str | None:
     second reporter (even with their own valid evidence) finds it already set.
     """
     if state.exposed:
+        return None
+    if state.spy_id is None:
         return None
     if not evidence.can_report:
         return None
