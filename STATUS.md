@@ -1,3 +1,3 @@
-M15 regression fix in progress — loop making the M11 shrine altar test resilient
-to the now-real end_season world-rebuild (full-suite regression caught in review)
-before the M15 review gate.
+M15 review-fix in progress — loop addressing PR #22 Copilot findings (template
+registry memoization, honest load-harness failure on unbuilt world, scout-death
+notify_scout_death wiring) before the M15 review gate.
