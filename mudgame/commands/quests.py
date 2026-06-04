@@ -84,7 +84,7 @@ class CmdQuests(Command):  # type: ignore[misc]
         lines = ["The Guildmaster's bounty board:"]
         for quest in quests_from(GUILDMASTER):
             entry = log.get(quest.id)
-            state = qstate.status(quest, entry, level=level, now=now)
+            state = qstate.status(quest, entry, level=level, now=now, log=log)
             lines.append(f"  {quest.title} [{quest.id}] - {state}")
             if state == qstate.ACTIVE and entry is not None:
                 owed = qstate.remaining(quest, entry["progress"])
@@ -131,8 +131,8 @@ class CmdAccept(Command):  # type: ignore[misc]
         log = _quest_log(caller)
         entry = log.get(quest.id)
         now = time.time()
-        if not qstate.can_accept(quest, entry, level=_level(caller), now=now):
-            state = qstate.status(quest, entry, level=_level(caller), now=now)
+        if not qstate.can_accept(quest, entry, level=_level(caller), now=now, log=log):
+            state = qstate.status(quest, entry, level=_level(caller), now=now, log=log)
             if state == qstate.ACTIVE:
                 caller.msg(f"You have already taken '{quest.title}'.")
             elif state == qstate.COMPLETE:

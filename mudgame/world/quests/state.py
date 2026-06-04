@@ -10,6 +10,14 @@ State model (quests.md §1): ``not_offered → available → active → complete
 ``active``/``complete`` are *stored* per character; ``available``/``not_offered``
 are derived from prereqs (and, for a repeatable bounty past its cooldown, from a
 stored ``complete``). ``status`` performs that derivation.
+
+Prereq gating (quests.md §1, §6, §9.2/§9.5) is enforced by ``prereqs_met``: a
+quest opens only when the character's level, completed prior quests, faction
+standing, and (for the priest-plot quests) evidence all clear the gate. Standing
+is compared against the faction ladder (``world.factions.config``); a tribe with
+no recorded standing defaults to neutral, matching ``FactionState.standing_band``,
+so tribe-chief quests are offered to a fresh character but withdrawn once they go
+hostile to the giver tribe.
 """
 
 from __future__ import annotations
@@ -17,13 +25,22 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TypedDict
 
-from world.quests.config import BOUNTY_COOLDOWN_SECONDS, KillStep, Quest
+from world.factions.config import STANDING_LADDER, band_for
+from world.quests.config import BOUNTY_COOLDOWN_SECONDS, KillStep, Quest, StandingGate
 
 # Displayed quest states (quests.md §1).
 NOT_OFFERED = "not_offered"
 AVAILABLE = "available"
 ACTIVE = "active"
 COMPLETE = "complete"
+
+# Standing band → ladder rank (0 = worst, higher = better), built from the single
+# faction ladder so the quest gate and the faction system never disagree on order.
+_STANDING_RANK: dict[str, int] = {label: rank for rank, (label, _) in enumerate(STANDING_LADDER)}
+
+# A (faction, player) pair with no recorded standing sits at reputation 0, which
+# the ladder reads as this band — the same default as ``FactionState.standing_band``.
+DEFAULT_STANDING_BAND: str = band_for(0, STANDING_LADDER)
 
 
 def kill_steps(quest: Quest) -> tuple[KillStep, ...]:
@@ -72,24 +89,98 @@ def remaining(quest: Quest, progress: Mapping[str, int]) -> dict[str, int]:
     }
 
 
-def status(quest: Quest, entry: QuestEntry | None, *, level: int, now: float) -> str:
+def standing_ok(gate: StandingGate, standings: Mapping[str, str]) -> bool:
+    """True when the character's band for ``gate.faction`` is at least ``min_band``.
+
+    Bands are ranked against the faction ladder (worst→best); a faction absent
+    from ``standings`` defaults to ``DEFAULT_STANDING_BAND`` (neutral), so a fresh
+    character clears a "non-hostile" tribe-chief gate but a player who has turned
+    the tribe hostile does not (quests.md §6, §9.5).
+    """
+    have = standings.get(gate.faction, DEFAULT_STANDING_BAND)
+    return _STANDING_RANK.get(have, 0) >= _STANDING_RANK[gate.min_band]
+
+
+def prereqs_met(
+    quest: Quest,
+    *,
+    level: int,
+    log: Mapping[str, QuestEntry] | None = None,
+    standings: Mapping[str, str] | None = None,
+    has_evidence: bool = False,
+) -> bool:
+    """True when every prerequisite for ``quest`` is satisfied (quests.md §1, §9.2).
+
+    Gates, all of which must clear: the character's ``level`` meets ``min_level``;
+    each ``prereq_quests`` id is stored ``complete`` in ``log``; each
+    ``standing_gates`` faction is at non-hostile (or better) standing; and, for the
+    evidence-gated priest-plot quests, ``has_evidence`` is true. ``log``/``standings``
+    default to empty, so an unsupplied prerequisite reads as unmet.
+    """
+    if level < quest.min_level:
+        return False
+    completed = log or {}
+    for prior_id in quest.prereq_quests:
+        prior = completed.get(prior_id)
+        if prior is None or prior["state"] != COMPLETE:
+            return False
+    standing_map = standings or {}
+    if not all(standing_ok(gate, standing_map) for gate in quest.standing_gates):
+        return False
+    return not (quest.requires_evidence and not has_evidence)
+
+
+def status(
+    quest: Quest,
+    entry: QuestEntry | None,
+    *,
+    level: int,
+    now: float,
+    log: Mapping[str, QuestEntry] | None = None,
+    standings: Mapping[str, str] | None = None,
+    has_evidence: bool = False,
+) -> str:
     """Derive the displayed state for ``quest`` from its stored ``entry``.
 
-    With no entry the quest is ``available`` once the level prereq is met, else
-    ``not_offered``. A repeatable bounty stored as ``complete`` becomes
-    ``available`` again once its cooldown elapses (quests.md §1, §9.10).
+    With no entry the quest is ``available`` once all prereqs clear (level, prior
+    quests, faction standing, evidence — ``prereqs_met``), else ``not_offered``. A
+    repeatable bounty stored as ``complete`` becomes ``available`` again once its
+    cooldown elapses *and* its prereqs still hold (quests.md §1, §9.2, §9.10).
     """
+    open_for_accept = prereqs_met(
+        quest, level=level, log=log, standings=standings, has_evidence=has_evidence
+    )
     if entry is None:
-        return AVAILABLE if level >= quest.min_level else NOT_OFFERED
+        return AVAILABLE if open_for_accept else NOT_OFFERED
     stored = entry["state"]
     if stored == COMPLETE and quest.repeatable and now >= entry["cooldown_until"]:
-        return AVAILABLE if level >= quest.min_level else NOT_OFFERED
+        return AVAILABLE if open_for_accept else NOT_OFFERED
     return stored
 
 
-def can_accept(quest: Quest, entry: QuestEntry | None, *, level: int, now: float) -> bool:
+def can_accept(
+    quest: Quest,
+    entry: QuestEntry | None,
+    *,
+    level: int,
+    now: float,
+    log: Mapping[str, QuestEntry] | None = None,
+    standings: Mapping[str, str] | None = None,
+    has_evidence: bool = False,
+) -> bool:
     """True when ``quest`` is in the ``available`` state for this character."""
-    return status(quest, entry, level=level, now=now) == AVAILABLE
+    return (
+        status(
+            quest,
+            entry,
+            level=level,
+            now=now,
+            log=log,
+            standings=standings,
+            has_evidence=has_evidence,
+        )
+        == AVAILABLE
+    )
 
 
 def accept(quest: Quest, entry: QuestEntry | None) -> QuestEntry:
