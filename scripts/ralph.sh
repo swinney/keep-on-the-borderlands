@@ -185,6 +185,12 @@ if [ "$once" -eq 1 ]; then
 fi
 
 echo "ralph: starting at turn $turn ($(date -Is)) — timeout ${turn_timeout}s, max-stalls ${max_stalls}"
+
+# STATUS.md is BOTH the loop's stop-signal and the human cold-start breadcrumb
+# (CLAUDE.md §10), so it is normally non-empty when a loop starts. Snapshot it
+# now and treat only a CHANGE to non-whitespace content as a stop reason — a
+# pre-existing breadcrumb must not halt a fresh loop after a single turn.
+status_start="$(cat STATUS.md 2>/dev/null || true)"
 stalls=0
 while true; do
   before=$(head_rev)
@@ -208,11 +214,16 @@ while true; do
     continue
   fi
 
-  # Stop only on a STATUS.md with real (non-whitespace) content. A blank or
-  # whitespace-only file is treated as "still running" — a turn that writes
-  # stray whitespace must NOT trip a false stop (this bit us once).
-  if grep -q '[^[:space:]]' STATUS.md 2>/dev/null; then
-    echo "ralph: STATUS.md has a stop reason at turn $turn — stopping"
+  # Stop only on a stop-reason written DURING this run. STATUS.md doubles as the
+  # human breadcrumb, so it is usually non-empty at startup; halting on any
+  # non-empty file would stop a fresh loop after a single turn. Compare against
+  # the startup snapshot and stop only when a turn CHANGED it to non-whitespace
+  # content (a blank/whitespace-only write must still NOT trip a stop — that bit
+  # us once). The runner's own max-stalls halt writes STATUS.md and exits
+  # directly below, so it is unaffected by this check.
+  status_now="$(cat STATUS.md 2>/dev/null || true)"
+  if [ -n "${status_now//[[:space:]]/}" ] && [ "$status_now" != "$status_start" ]; then
+    echo "ralph: STATUS.md updated with a stop reason at turn $turn — stopping"
     echo "--- STATUS.md ---"
     cat STATUS.md
     exit 0
