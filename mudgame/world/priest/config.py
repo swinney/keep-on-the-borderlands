@@ -150,3 +150,22 @@ SPY_QUESTS_TO_AMBUSH = 3
 # Mirrors the id in world.factions.config; duplicated here as a plain constant so
 # the priest plot need not import the faction package.
 CULT_FACTION_ID = "cult"
+
+
+# ── Exposure (spec §5) ───────────────────────────────────────────────────────
+#
+# When a player reports the spy to the Castellan with sufficient evidence the
+# world reacts once, server-wide: the secret becomes public, a broadcast fires,
+# and the spy flees the chapel to make its stand at the Shrine as a cult boss.
+
+# The Shrine room the exposed spy flees to and is re-instantiated in as a boss
+# (R3 Shrine zone; the room build leaves it intentionally empty for this plot).
+BOSS_LAIR_ROOM = "boss_lair"
+
+
+def exposure_broadcast(sdesc: str) -> str:
+    """The server-wide announcement fired when the spy is unmasked (spec §5).
+
+    ``sdesc`` is the unmasked NPC's short description (e.g. "a portly deacon").
+    """
+    return f"Treachery in the chapel! {sdesc} is unmasked as a spy of Chaos and has fled!"

@@ -8,8 +8,14 @@ This slice owns the rotating identity and the seasonal clue set: at each season
 start the spy is re-rolled — chosen at random but never equal to the immediately
 preceding season's spy (spec §2 step 1, §7 behaviors 1-2) — and a fresh set of
 ``CLUE_COUNT`` distinct clues is drawn from the clue pool and attached to it
-(spec §2 step 2, §7 behavior 3). Detection, the quest chain, and exposure extend
-this state in the later M12 slices.
+(spec §2 step 2, §7 behavior 3). Detection and the quest chain extend this state
+in their own M12 slices.
+
+The exposure slice adds the **server-global** ``exposed`` flag (spec §5): set
+once, when a player reports the spy with sufficient evidence, it marks the secret
+public and the spy relocated to the Shrine as a boss. Rolling a new identity
+(``assign_spy``) clears it — a fresh season's spy is by definition not yet
+unmasked. Exposure transitions live in ``world.priest.exposure``.
 """
 
 from __future__ import annotations
@@ -32,9 +38,11 @@ class PriestState:
         self,
         spy_id: str | None = None,
         clue_ids: tuple[str, ...] = (),
+        exposed: bool = False,
     ) -> None:
         self.spy_id: str | None = spy_id
         self.clue_ids: tuple[str, ...] = tuple(clue_ids)
+        self.exposed: bool = exposed
 
     def assign_spy(self, rng: Random) -> str:
         """Roll a new spy for the season and return its id (spec §2 step 1).
@@ -42,10 +50,12 @@ class PriestState:
         The pick is drawn from the pool excluding the current ``spy_id`` (the
         immediately preceding season's spy), guaranteeing no back-to-back
         repeat. On the first assignment, with no prior spy, the whole pool is
-        eligible.
+        eligible. Rolling a fresh identity also clears any prior ``exposed``
+        flag (spec §6): a newly-assigned spy starts the season unmasked.
         """
         candidates = [npc_id for npc_id in _cfg.POOL_IDS if npc_id != self.spy_id]
         self.spy_id = rng.choice(candidates)
+        self.exposed = False
         return self.spy_id
 
     def assign_clues(self, rng: Random) -> tuple[str, ...]:

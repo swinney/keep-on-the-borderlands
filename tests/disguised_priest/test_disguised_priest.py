@@ -15,7 +15,7 @@ import pytest
 
 from world.factions.state import FactionState
 from world.priest import config as cfg
-from world.priest import detection, quests
+from world.priest import detection, exposure, quests
 from world.priest.evidence import Evidence
 from world.priest.quests import SpyQuestLog
 from world.priest.state import PriestState
@@ -288,14 +288,62 @@ def test_spy_quest_log_is_per_character() -> None:
     assert bob.ambush_sprung is False
 
 
-@pytest.mark.skip(reason="M12 exposure slice")
+# ── Exposure (spec §5, §7 behaviors 11-12) ────────────────────────────────────
+
+
 def test_valid_report_exposes_and_relocates() -> None:
     """WHEN a player reports with sufficient evidence THEN exposed is set and the spy becomes a boss."""
+    state = PriestState(spy_id="ortho", clue_ids=("black_candles", "holy_water"))
+    assert state.exposed is False
+
+    # A single strong proof is sufficient to report; the report returns the spy
+    # id to relocate to the Shrine as a boss (spec §5 step 3) and trips the
+    # server-global exposed flag.
+    ev = Evidence(strong_proofs=(cfg.PROOF_DETECT_EVIL,))
+    assert ev.can_report is True
+    assert exposure.report_to_castellan(state, ev) == "ortho"
+    assert state.exposed is True
 
 
-@pytest.mark.skip(reason="M12 exposure slice")
+def test_three_sightings_also_expose() -> None:
+    """WHEN a player reports with three clue sightings THEN exposure fires."""
+    state = PriestState(
+        spy_id="bellan",
+        clue_ids=("black_candles", "holy_water", "omits_litany"),
+    )
+    # Three distinct sightings (no strong proof) clear the report bar (spec §3).
+    ev = Evidence(clue_sightings=("black_candles", "holy_water", "omits_litany"))
+    assert ev.can_report is True
+    assert exposure.report_to_castellan(state, ev) == "bellan"
+    assert state.exposed is True
+
+
+def test_exposure_is_global_and_fires_once() -> None:
+    """WHEN the spy is already exposed THEN a later report does not re-fire the event."""
+    state = PriestState(spy_id="ortho", clue_ids=("black_candles",))
+    first = Evidence(strong_proofs=(cfg.PROOF_DETECT_EVIL,))
+    assert exposure.report_to_castellan(state, first) == "ortho"
+    assert state.exposed is True
+
+    # A second reporter, even with their own valid evidence, finds the secret
+    # already public: the world event is a one-shot, so the report is a no-op.
+    second = Evidence(clue_sightings=("black_candles", "holy_water", "omits_litany"))
+    assert second.can_report is True
+    assert exposure.report_to_castellan(state, second) is None
+    assert state.exposed is True
+
+
 def test_weak_report_is_rejected() -> None:
     """WHEN a player reports without enough evidence THEN the report is rejected."""
+    state = PriestState(spy_id="ortho", clue_ids=("black_candles", "holy_water"))
+
+    # One clue sighting is short of the three-sighting bar and is no strong
+    # proof: the report is rejected ("suspicions, not proof") and nothing is
+    # exposed.
+    ev = Evidence(clue_sightings=("black_candles",))
+    assert ev.can_report is False
+    assert exposure.report_to_castellan(state, ev) is None
+    assert state.exposed is False
 
 
 @pytest.mark.skip(reason="M12 reset slice")

@@ -6,8 +6,13 @@ and re-rolls the identity at each season boundary.
 
 The season_manager's ``reset_priest`` hook calls ``reset_season`` once per season
 (R6 §3.3); the manager re-rolls the spy, never picking the NPC that just served,
-and re-draws the spy's clue set (spec §2). Detection paths, the quest chain, and
-exposure land with the later M12 slices and extend this manager.
+and re-draws the spy's clue set (spec §2). Detection paths and the quest chain
+are pure (world.priest.detection / .quests) and key off this manager's identity.
+
+Exposure (spec §5) is owned here: ``report`` validates a reporting player's
+per-character evidence against the global identity, flips the server-global
+``exposed`` flag exactly once, broadcasts the unmasking, and flees the spy NPC to
+the Shrine as a boss. The pure decision lives in world.priest.exposure.
 
 Usage (from anywhere in the running game)::
 
@@ -15,6 +20,8 @@ Usage (from anywhere in the running game)::
     mgr = search.search_script("priest_manager")[0]
     mgr.spy_id            # current season's disguised priest
     mgr.clue_ids          # the clues attached to this season's spy
+    mgr.exposed           # whether the spy has been unmasked this season
+    mgr.report(evidence)  # report to the Castellan with a player's evidence
 """
 
 from __future__ import annotations
@@ -22,9 +29,13 @@ from __future__ import annotations
 from random import Random
 from typing import Any
 
+import evennia
 from evennia.scripts.scripts import DefaultScript
 from evennia.utils import logger
 
+from world.priest import config as _cfg
+from world.priest import exposure
+from world.priest.evidence import Evidence
 from world.priest.state import PriestState
 
 
@@ -38,8 +49,10 @@ class PriestManager(DefaultScript):
         # Persisted plainly so Evennia Attributes can store them:
         #   spy_id   — the current season's spy NPC id (None before first roll)
         #   clue_ids — the clues attached to this season's spy (list of clue ids)
+        #   exposed  — server-global flag: has the spy been unmasked this season
         self.db.spy_id = None
         self.db.clue_ids = []
+        self.db.exposed = False
         # Seed the first season's identity and clue set immediately so the
         # chapel always has a fully-assigned spy from creation onward.
         self.assign_spy()
@@ -51,11 +64,13 @@ class PriestManager(DefaultScript):
         return PriestState(
             spy_id=self.db.spy_id,
             clue_ids=tuple(self.db.clue_ids or ()),
+            exposed=bool(self.db.exposed),
         )
 
     def _save(self, state: PriestState) -> None:
         self.db.spy_id = state.spy_id
         self.db.clue_ids = list(state.clue_ids)
+        self.db.exposed = state.exposed
 
     # ── Identity API ──────────────────────────────────────────────────────────
 
@@ -68,6 +83,55 @@ class PriestManager(DefaultScript):
     def clue_ids(self) -> tuple[str, ...]:
         """The clues attached to this season's spy (spec §2 step 2)."""
         return tuple(self.db.clue_ids or ())
+
+    @property
+    def exposed(self) -> bool:
+        """Whether the spy has been unmasked this season (spec §5)."""
+        return bool(self.db.exposed)
+
+    # ── Exposure (spec §5) ────────────────────────────────────────────────────
+
+    def report(self, evidence: Evidence) -> bool:
+        """Report the spy to the Castellan; return whether this report exposes him.
+
+        Validates the reporting player's per-character ``evidence`` against the
+        global identity (world.priest.exposure). On the single exposing report,
+        flips the server-global ``exposed`` flag, broadcasts the unmasking, and
+        flees the spy NPC to the Shrine as a cult boss (spec §5 steps 2-3),
+        returning ``True``. Returns ``False`` for an insufficiently-evidenced
+        report (rejected, spec §5 step 1) or one that arrives after the spy is
+        already exposed (the secret is public; the world event never re-fires).
+        """
+        state = self._priest_state()
+        spy_id = exposure.report_to_castellan(state, evidence)
+        if spy_id is None:
+            return False
+        self._save(state)
+        self._expose_spy(spy_id)
+        return True
+
+    def _expose_spy(self, spy_id: str) -> None:
+        """Carry out the world reaction to an exposing report (spec §5 steps 2-3).
+
+        Broadcasts the unmasking server-wide and flees the spy NPC from the
+        chapel to the Shrine ``boss_lair``, where it is re-instantiated as a cult
+        boss. Live mob relocation rides the same logged-stub path as
+        repop_manager._instantiate until the spawner is wired; the canonical,
+        observable effects — the global flag and the broadcast — fire here.
+        """
+        sdesc = _cfg.npc_by_id(spy_id).sdesc
+        self._broadcast(_cfg.exposure_broadcast(sdesc))
+        logger.log_info(
+            f"priest_manager: spy {spy_id} unmasked; fleeing to Shrine "
+            f"{_cfg.BOSS_LAIR_ROOM} as a cult boss."
+        )
+
+    @staticmethod
+    def _broadcast(message: str) -> None:
+        """Announce to every connected session (mirrors repop_manager._broadcast)."""
+        if evennia.SESSION_HANDLER is not None:
+            for session in evennia.SESSION_HANDLER.get_sessions():
+                session.msg(message)
 
     def assign_spy(self, rng: Random | None = None) -> str:
         """Roll this season's spy, never repeating the outgoing one (spec §2).
