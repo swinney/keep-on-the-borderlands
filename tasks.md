@@ -179,6 +179,7 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [ ] Wire all 24 quests across givers (Castellan, Curate, Guildmaster, Provisioner, Hermit, chiefs, priest)
 - [ ] Faction gating + repeatable/story state per character
 - [ ] Season-global effects (expose priest, destroy Shrine); `tests/quests` green (M13 exit)
+- [ ] ⛔ MILESTONE GATE (M13 → M14) — write "M13 complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 ## M14 — Polish & scale
 
