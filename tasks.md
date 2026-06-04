@@ -179,6 +179,9 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
 - [x] Wire all 24 quests across givers (Castellan, Curate, Guildmaster, Provisioner, Hermit, chiefs, priest)
 - [x] Faction gating + repeatable/story state per character
 - [x] Season-global effects (expose priest, destroy Shrine); `tests/quests` green (M13 exit)
+- [ ] M13 review-fix (PR #20): **per-quest evidence threshold**. Today `commands/quests` gates every `requires_evidence` quest on one global `can_report` boolean (1 strong proof OR 3 sightings), but `cu_suspicions` must open at **≥2 clue sightings** (priest `CURATE_CLUE_THRESHOLD`) while `c_expose_priest` needs report-grade. Give the `Quest` record a per-quest evidence requirement (e.g. an `evidence_min` field: report-grade vs curate-threshold) and evaluate it per quest. Update `tests/quests` to pin both thresholds.
+- [ ] M13 review-fix (PR #20): **grant `Reward.items` on turn-in**. `_apply_reward` applies only gp/xp + faction effects and ignores `quest.reward.items` (holy water, map, relic — spec §9.3). Append each item to the caller's inventory (`caller.db.quest_items` list). Add a `tests/quests` case proving an item-reward quest delivers its items.
+- [ ] M13 review-fix (PR #20): **close the deed-quest turn-in exploit**. `qstate.steps_met` is vacuously true for deed-only quests (no kill steps), and `turnin` checks nothing else, so a deed quest can be accepted and turned in instantly for full reward/effects without the deed (e.g. deliver-rations, destroy-Altar). Gate deed-only turn-in behind a **deed-completion flag** on the quest entry that only a world event sets; `turnin` refuses until it is set. EXCEPTION: a quest whose deed *is* the turn-in action — `c_expose_priest` (reporting to the Castellan) — stays gated by its evidence requirement, not a prior flag. For `c_destroy_shrine`: do **not** fire `end_season` from the quest turn-in (the `Altar.at_destruction` hook is the canonical R6 trigger, per review F4); gate its turn-in on a shrine-destroyed marker and grant only the reward. Rewrite `tests/quests/test_season_global.py` (which currently turns in `c_destroy_shrine` with no deed) accordingly and add a refused-without-deed test.
 - [ ] ⛔ MILESTONE GATE (M13 → M14) — write "M13 complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 ## M14 — Polish & scale
@@ -205,18 +208,27 @@ in `docs/specs/`. Architecture in `docs/architecture.md`.
   all seven engine conftests (gate the bootstrap to `@pytest.mark.django_db` tests)
   rather than diverging one — a cross-cutting test-infra change, deferred from M9.
 
-- [ ] **Tribe-chief quest givers — no accept/turn-in path** (deferred from M13):
-  the four `t_*` quests (`t_vol_vs_dec`, `t_dec_vs_vol`, `t_gob_vs_gnoll`,
-  `t_bribe_ogre`) are given by tribe chiefs, but chiefs are plain `Mob`s
-  (`leader_role="chief"`), not service-NPC givers, so `commands.quests._giver_here`
-  can't resolve them — and chiefs aren't live-spawned anyway (project-wide no-op
-  spawner). Their completion *effects* (`tension_pair`, `aid_faction`,
-  `breaks_alliance`) ARE wired into the turn-in path and tested at the wiring
-  level (`tests/quests/test_quests.py`), but the end-to-end accept→turn-in flow
-  needs a design decision (how/where you turn a quest in to a chief you may also
-  be there to kill) and depends on the spawner/world-build work. Wire once that
-  lands. Also correct the stale "24 quests" prose in `docs/specs/quests.md` and
-  `docs/build-plan.md` — the §2–§7 tables enumerate **26**, which is what M13 wired.
+- [ ] **Quest runtime — giver resolution + deed-completion event hooks**
+  (deferred from M13; depends on the spawner/world-build layer). Two pieces, both
+  blocked on live NPCs/world events that don't exist yet:
+  - **Giver resolution (review F1).** `commands.quests._giver_here` matches an NPC
+    by `db.role` against `GIVERS`, but `role` is a display descriptor for most
+    NPCs (the spy's chapel role is `almoner`/etc., the hermit, the provisioner) —
+    only the Guildmaster and Castellan happen to have `role == giver-key`. So the
+    `HERMIT`/`SPY`/`PROVISIONER` and tribe-chief (`t_*`, plain `Mob`s) givers are
+    unreachable: their quests can't be listed/accepted/turned in. Give giver NPCs
+    an explicit quest-giver key (separate from display `role`) and resolve on that;
+    decide how a tribe-chief turn-in works (a chief you may also be there to kill).
+  - **Deed-completion event hooks.** M13 gates deed-only quest turn-in behind a
+    deed-completion flag, but the *world events that SET it* are deferred — e.g.
+    `Altar.at_destruction` → shrine-destroyed marker (the altar already fires
+    `end_season`), "rations delivered", "captive escorted home", spy-package
+    drop-offs. Wire each deed's trigger when the spawner/world-build lands.
+  The completion *effects* themselves (`tension_pair`/`aid_faction`/
+  `breaks_alliance`/cult chain/`reward.items`) are wired + tested at the wiring
+  level in `tests/quests/test_quests.py`. Also correct the stale "24 quests" prose
+  in `docs/specs/quests.md` and `docs/build-plan.md` — the §2–§7 tables enumerate
+  **26**, which is what M13 wired.
 
 ---
 
