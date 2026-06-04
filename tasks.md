@@ -206,7 +206,7 @@ populated world. This unblocks the M13 quest-giver/deed-event wiring and the
 three blocked M14 acceptance criteria. **Spec-first** — the spec is pivotal, so
 the loop drafts it and halts for review before any tests/implementation.
 
-- [ ] Spec: write `docs/specs/world-build.md` — a runtime world-build/boot orchestrator that builds every zone and **spawns** mobs/NPCs/leaders from the existing registries (replacing the deliberate no-op `_instantiate`), wires quest-givers by an explicit giver-key (M13 F1) plus the world-event hooks that set deed-completion flags (M13 F3), and exposes a bootable, load-testable server. Sketch the `tests/world_build/` plan. Per PROMPT.md, write the spec and stop — no implementation this turn.
+- [x] Spec: write `docs/specs/world-build.md` — a runtime world-build/boot orchestrator that builds every zone and **spawns** mobs/NPCs/leaders from the existing registries (replacing the deliberate no-op `_instantiate`), wires quest-givers by an explicit giver-key (M13 F1) plus the world-event hooks that set deed-completion flags (M13 F3), and exposes a bootable, load-testable server. Sketch the `tests/world_build/` plan. Per PROMPT.md, write the spec and stop — no implementation this turn.
 - [ ] ⛔ MILESTONE GATE (M15 spec → review) — write "M15 world-build spec drafted — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 ## Deferred follow-ups
