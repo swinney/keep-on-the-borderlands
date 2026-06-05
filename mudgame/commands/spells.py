@@ -89,6 +89,13 @@ class CmdCast(Command):  # type: ignore[misc]
         # CombatHandler (combat.md §4.1/§5) — damage taken before then disrupts it.
         # The slot is reserved (still memorized) until resolution or disruption.
         if _in_combat(caller):
+            # One declaration per round: a second in-combat cast must not clobber
+            # the first (which has a reserved slot awaiting resolution) (PR #25 F4).
+            pending: str | None = caller.db.spell_declaring
+            if pending:
+                pending_spell = get_spell(pending)
+                caller.msg(f"You are already casting {pending_spell.name} this round.")
+                return
             caller.db.spell_declaring = spell_name
             caller.db.spell_disrupted = False
             caller.db.pending_cast = {"spell": spell_name, "target": target_name}

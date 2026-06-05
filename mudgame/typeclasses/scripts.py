@@ -141,14 +141,14 @@ class CombatHandler(DefaultScript):
             self.db.combatants.append(combatant)
         # Back-reference so `cast` can tell it is in combat and should declare a
         # spell for end-of-round resolution rather than cast synchronously (§5).
-        if combatant.attributes.has("combat_handler"):
-            combatant.db.combat_handler = self
+        # Set unconditionally: Evennia Attributes can be assigned freely, so this
+        # works for characters created before the Attribute existed too (PR #25 F1).
+        combatant.db.combat_handler = self
 
     def remove_combatant(self, combatant: Any) -> None:
         with contextlib.suppress(ValueError):
             self.db.combatants.remove(combatant)
-        if combatant.attributes.has("combat_handler"):
-            combatant.db.combat_handler = None
+        combatant.db.combat_handler = None
 
     def at_stop(self) -> None:
         """End-of-combat cleanup: resolve any last declarations, drop back-refs.
@@ -163,7 +163,7 @@ class CombatHandler(DefaultScript):
         alive = [c for c in combatants if c and int(c.traits.hp.value) > 0]
         self._resolve_declared_spells(alive)
         for combatant in combatants:
-            if combatant and combatant.attributes.has("combat_handler"):
+            if combatant:
                 combatant.db.combat_handler = None
 
     def at_repeat(self) -> None:

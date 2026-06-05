@@ -486,6 +486,76 @@ def test_cast_in_combat_declares_without_resolving() -> None:
 
 
 @pytest.mark.django_db
+def test_preexisting_combatant_declares_after_add_combatant() -> None:
+    """A combatant lacking the combat_handler Attribute still declares in combat (PR #25 F1).
+
+    Simulates a character created before this PR existed: deleting the Attribute
+    leaves `attributes.has("combat_handler")` False. `add_combatant` must still
+    stamp the back-ref so `cast` declares (rather than casting synchronously).
+    """
+    room = create.create_object("typeclasses.rooms.Room", key="decl-room-preexist")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter", key="decl-pc-preexist", location=room
+    )
+    dummy = create.create_object(
+        "typeclasses.npcs.TargetDummy", key="decl-dummy-preexist", location=room
+    )
+    try:
+        # Mimic a pre-PR character: no combat_handler Attribute at all.
+        char.attributes.remove("combat_handler")
+        assert not char.attributes.has("combat_handler")
+
+        handler = _start_combat(char, dummy)
+        try:
+            assert char.db.combat_handler == handler  # back-ref stamped anyway
+
+            char.db.memorized_spells = ["magic missile"]
+            _run_cast(char, "magic missile decl-dummy-preexist")
+
+            # Declared (in-combat path), not resolved synchronously.
+            assert char.db.spell_declaring == "magic missile"
+            assert int(dummy.traits.hp.value) == 100
+            assert "magic missile" in (char.db.memorized_spells or [])
+        finally:
+            handler.delete()
+    finally:
+        char.delete()
+        dummy.delete()
+        room.delete()
+
+
+@pytest.mark.django_db
+def test_second_in_combat_cast_refused_while_pending() -> None:
+    """A second in-combat cast must not clobber an already-declared spell (PR #25 F4)."""
+    room = create.create_object("typeclasses.rooms.Room", key="decl-room-second")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter", key="decl-pc-second", location=room
+    )
+    dummy = create.create_object(
+        "typeclasses.npcs.TargetDummy", key="decl-dummy-second", location=room
+    )
+    handler = _start_combat(char, dummy)
+    try:
+        char.db.memorized_spells = ["magic missile", "light"]
+        _run_cast(char, "magic missile decl-dummy-second")  # first declaration
+
+        messages: list[str] = []
+        char.msg = lambda text, **_kw: messages.append(str(text))
+
+        _run_cast(char, "light")  # second cast same round → refused
+
+        # The first declaration is preserved, not overwritten by "light".
+        assert char.db.spell_declaring == "magic missile"
+        assert char.db.pending_cast == {"spell": "magic missile", "target": "decl-dummy-second"}
+        assert any("already casting" in m.lower() for m in messages)
+    finally:
+        handler.delete()
+        char.delete()
+        dummy.delete()
+        room.delete()
+
+
+@pytest.mark.django_db
 def test_combat_handler_resolves_declared_spell_at_end_of_round() -> None:
     """An undisturbed declaration resolves when the CombatHandler ticks (§4.1)."""
     room = create.create_object("typeclasses.rooms.Room", key="decl-room-resolve")
