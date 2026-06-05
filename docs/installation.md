@@ -224,7 +224,7 @@ py from world.build.orchestrator import build_all; build_all()
 - **World looks empty after first boot** — the one-time build hook may have
   failed silently. Run `build_all()` as in
   [§8](#8-re-populating-an-existing-database) and check the server log
-  (`evennia/server/logs/` under the game dir) for the traceback.
+  (`server/logs/` under the `mudgame/` game dir) for the traceback.
 - **Port already in use** — another process (or a previous, un-stopped server)
   holds 4000/4001/4002. `evennia stop`, or free the port, then `evennia start`.
 
