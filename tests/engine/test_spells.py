@@ -6,6 +6,7 @@ consumes slot) and 10 (damage before resolution disrupts the declared spell).
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -441,4 +442,107 @@ def test_damage_without_declaring_does_not_disrupt() -> None:
         assert "light" in (char.db.memorized_spells or [])
     finally:
         char.delete()
+        room.delete()
+
+
+# ── Combat-round declare/resolve timing (combat.md §4.1, §5; §8 behavior 10) ───
+
+
+def _start_combat(*combatants: object) -> Any:
+    """Create a CombatHandler and register the given combatants."""
+    handler = create.create_script("typeclasses.scripts.CombatHandler")
+    for combatant in combatants:
+        handler.add_combatant(combatant)
+    return handler
+
+
+@pytest.mark.django_db
+def test_cast_in_combat_declares_without_resolving() -> None:
+    """In combat, `cast` declares the spell rather than resolving it immediately."""
+    room = create.create_object("typeclasses.rooms.Room", key="decl-room-declare")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter", key="decl-pc-declare", location=room
+    )
+    dummy = create.create_object(
+        "typeclasses.npcs.TargetDummy", key="decl-dummy-declare", location=room
+    )
+    handler = _start_combat(char, dummy)
+    try:
+        char.db.memorized_spells = ["magic missile"]
+
+        _run_cast(char, "magic missile decl-dummy-declare")
+
+        # Declared, awaiting end-of-round resolution.
+        assert char.db.spell_declaring == "magic missile"
+        assert char.db.pending_cast == {"spell": "magic missile", "target": "decl-dummy-declare"}
+        # No effect yet and the slot is still reserved (not consumed).
+        assert int(dummy.traits.hp.value) == 100
+        assert "magic missile" in (char.db.memorized_spells or [])
+    finally:
+        handler.delete()
+        char.delete()
+        dummy.delete()
+        room.delete()
+
+
+@pytest.mark.django_db
+def test_combat_handler_resolves_declared_spell_at_end_of_round() -> None:
+    """An undisturbed declaration resolves when the CombatHandler ticks (§4.1)."""
+    room = create.create_object("typeclasses.rooms.Room", key="decl-room-resolve")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter", key="decl-pc-resolve", location=room
+    )
+    dummy = create.create_object(
+        "typeclasses.npcs.TargetDummy", key="decl-dummy-resolve", location=room
+    )
+    handler = _start_combat(char, dummy)
+    try:
+        char.db.memorized_spells = ["magic missile"]
+        _run_cast(char, "magic missile decl-dummy-resolve")
+
+        handler.at_repeat()  # end of round → resolve declarations
+
+        # Spell landed: damage applied, slot consumed, declaration cleared.
+        assert int(dummy.traits.hp.value) < 100
+        assert char.db.spell_declaring is None
+        assert char.db.pending_cast is None
+        assert "magic missile" not in (char.db.memorized_spells or [])
+    finally:
+        handler.delete()
+        char.delete()
+        dummy.delete()
+        room.delete()
+
+
+@pytest.mark.django_db
+def test_damage_before_resolution_disrupts_declared_spell() -> None:
+    """A faster attacker's blow before the tick spoils the cast — no effect, slot lost."""
+    room = create.create_object("typeclasses.rooms.Room", key="decl-room-disrupt")
+    char = create.create_object(
+        "typeclasses.characters.PlayerCharacter", key="decl-pc-disrupt", location=room
+    )
+    dummy = create.create_object(
+        "typeclasses.npcs.TargetDummy", key="decl-dummy-disrupt", location=room
+    )
+    handler = _start_combat(char, dummy)
+    try:
+        char.traits.hp.base = 20
+        char.db.memorized_spells = ["magic missile"]
+        _run_cast(char, "magic missile decl-dummy-disrupt")  # declared this round
+
+        char.apply_damage(3)  # struck before resolution → disrupted
+
+        assert char.db.spell_declaring is None
+        assert char.db.pending_cast is None
+        assert char.db.spell_disrupted is True
+        assert "magic missile" not in (char.db.memorized_spells or [])
+
+        handler.at_repeat()  # end of round → nothing left to resolve
+
+        # The spell never landed on the target.
+        assert int(dummy.traits.hp.value) == 100
+    finally:
+        handler.delete()
+        char.delete()
+        dummy.delete()
         room.delete()

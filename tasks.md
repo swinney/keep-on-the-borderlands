@@ -251,7 +251,7 @@ one per branch/PR for focused review. Each is `spec(exists)→test→impl`, gate
 
 ## M17b — Spell disruption via combat-round timing (combat.md §5)
 
-- [ ] Make `cast` **declare** a spell (set `spell_declaring`) and resolve it at end of round via the `CombatHandler`, so damage taken before resolution disrupts it (combat.md §5). M2 shipped the inert `apply_damage` hook (synchronous casting never declares); this needs the round loop's declare→resolve phases. Re-enable the skipped `tests/combat/test_combat.py::test_damage_disrupts_unresolved_cast`. Then check off the matching Deferred-follow-ups item. spec→test→impl; full-suite green before commit.
+- [x] Make `cast` **declare** a spell (set `spell_declaring`) and resolve it at end of round via the `CombatHandler`, so damage taken before resolution disrupts it (combat.md §5). M2 shipped the inert `apply_damage` hook (synchronous casting never declares); this needs the round loop's declare→resolve phases. Re-enable the skipped `tests/combat/test_combat.py::test_damage_disrupts_unresolved_cast`. Then check off the matching Deferred-follow-ups item. spec→test→impl; full-suite green before commit.
 - [ ] ⛔ MILESTONE GATE (M17b → review) — write "M17b spell disruption complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 ## Deferred follow-ups
@@ -265,12 +265,13 @@ one per branch/PR for focused review. Each is `spec(exists)→test→impl`, gate
   content-frozen seams whose hooks exist and are tested, awaiting their carrier
   objects/relocation wiring (tracked below).
 
-- [ ] **Spell disruption via combat-round timing** (combat.md §5): make `cast`
+- [x] **Spell disruption via combat-round timing** (combat.md §5): make `cast`
   *declare* a spell (set `spell_declaring`) and resolve it at end of round via
   the `CombatHandler`, so damage taken before resolution disrupts it. M2 shipped
   the `apply_damage` hook but left it inert (synchronous casting never declares);
   this needs the round loop's declare→resolve phases. Re-enables the skipped
   `tests/combat/test_combat.py::test_damage_disrupts_unresolved_cast`.
+  **DELIVERED by M17b.**
 
 - [x] **Pure tests run Django-free in mixed dirs** (Copilot PR #8, #22 F2): the
   `scope="session", autouse=True` bootstrap in the engine conftests (`tests/quests`,

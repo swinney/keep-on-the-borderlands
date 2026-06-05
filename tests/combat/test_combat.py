@@ -12,6 +12,7 @@ behaviours owned by later milestones.
 import pytest
 
 from world.rules.combat import initiative_order, is_dead
+from world.rules.spells import SpellDeclaration
 
 
 def test_individual_initiative_orders_actors() -> None:
@@ -40,9 +41,22 @@ def test_casting_consumes_slot() -> None:
     """WHEN a caster casts a prepared spell THEN that slot is expended."""
 
 
-@pytest.mark.skip(reason="deferred: needs combat-round declare/resolve timing (see tasks.md)")
 def test_damage_disrupts_unresolved_cast() -> None:
-    """WHEN a caster takes damage before resolution THEN the spell fails and slot is lost."""
+    """WHEN a caster takes damage before resolution THEN the spell fails and slot is lost.
+
+    Pure declare→resolve core (combat.md §4.1, §5): a fresh declaration resolves
+    at end of round, but a disruption (damage taken in the interim) stops it.
+    The engine wires this through ``db.spell_declaring`` / ``apply_damage`` /
+    ``CombatHandler`` (covered in ``tests/engine/test_spells.py``).
+    """
+    declaration = SpellDeclaration("magic missile")
+    # Undisturbed, the spell resolves at the end of the round.
+    assert declaration.resolves() is True
+
+    # A faster attacker lands a blow before resolution → the cast is spoiled.
+    declaration.disrupt()
+    assert declaration.disrupted is True
+    assert declaration.resolves() is False
 
 
 @pytest.mark.skip(reason="M7 — character creation")
