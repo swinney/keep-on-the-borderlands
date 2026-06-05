@@ -1,20 +1,22 @@
 """Fixtures for acceptance engine tests (requires pytest-django / Evennia).
 
-The XP-pacing projection tests (``test_xp_pacing.py``) are pure and request no DB
-fixture; the C8 latency measurement (``test_latency_50.py``) marks
-``@pytest.mark.django_db`` and relies on this session bootstrap, mirroring
-``tests/world_build/conftest.py`` and ``tests/zones/conftest.py``.
+Pure tests (``test_xp_pacing.py``, ``test_criteria_coverage.py``) never carry
+@pytest.mark.django_db so this bootstrap skips entirely when they run in
+isolation; only the C8 latency measurement (``test_latency_50.py``) triggers
+the Evennia boot.
 """
-
-from typing import Any
 
 import evennia
 import pytest
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _bootstrap_evennia_acceptance(django_db_setup: Any, django_db_blocker: Any) -> None:
-    """Initialise the Evennia API once per session for acceptance engine tests."""
+def _bootstrap_evennia_acceptance(request: pytest.FixtureRequest) -> None:
+    """Initialise the Evennia API once per session, only when DB tests are present."""
+    if not any(item.get_closest_marker("django_db") is not None for item in request.session.items):
+        return
+    request.getfixturevalue("django_db_setup")
+    django_db_blocker = request.getfixturevalue("django_db_blocker")
     with django_db_blocker.unblock():
         # Other engine suites share this flag so _init runs at most once.
         if not getattr(evennia, "_kotb_initialized", False):

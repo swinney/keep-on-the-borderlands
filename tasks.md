@@ -246,7 +246,7 @@ Implementation slices (spec §7, each spec→test→impl, dependency order):
 v1 acceptance is met (M16); these are the deferred-follow-up items, now driven
 one per branch/PR for focused review. Each is `spec(exists)→test→impl`, gated.
 
-- [ ] M17a — **Django-free conftests**: gate the `scope="session", autouse=True` Evennia bootstrap to `@pytest.mark.django_db` tests across **all** engine conftests (`tests/quests`, `tests/zones`, `tests/economy`, `tests/world_build`, `tests/acceptance`), so a pure test (e.g. `test_xp_pacing.py`) run in isolation does NOT boot Django (verify with `pytest --setup-show` on a pure test) while full-suite runs stay green. The fix should be uniform (don't diverge one conftest). Then check off the matching Deferred-follow-ups item. Per the deferred note (Copilot PR #8, #22 F2).
+- [x] M17a — **Django-free conftests**: gate the `scope="session", autouse=True` Evennia bootstrap to `@pytest.mark.django_db` tests across **all** engine conftests (`tests/quests`, `tests/zones`, `tests/economy`, `tests/world_build`, `tests/acceptance`), so a pure test (e.g. `test_xp_pacing.py`) run in isolation does NOT boot Django (verify with `pytest --setup-show` on a pure test) while full-suite runs stay green. The fix should be uniform (don't diverge one conftest). Then check off the matching Deferred-follow-ups item. Per the deferred note (Copilot PR #8, #22 F2).
 - [ ] ⛔ MILESTONE GATE (M17a → review) — write "M17a Django-free conftests complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 ## Deferred follow-ups
@@ -267,14 +267,14 @@ one per branch/PR for focused review. Each is `spec(exists)→test→impl`, gate
   this needs the round loop's declare→resolve phases. Re-enables the skipped
   `tests/combat/test_combat.py::test_damage_disrupts_unresolved_cast`.
 
-- [ ] **Pure tests run Django-free in mixed dirs** (Copilot PR #8, #22 F2): the
+- [x] **Pure tests run Django-free in mixed dirs** (Copilot PR #8, #22 F2): the
   `scope="session", autouse=True` bootstrap in the engine conftests (`tests/quests`,
   `tests/zones`, `tests/economy`, `tests/world_build`, `tests/acceptance`) pulls
   `django_db_setup` into the *pure* tests in those dirs (e.g. `test_xp_pacing.py`),
   so running one in isolation boots Evennia (verified via `pytest --setup-show`).
   Full-suite runs are unaffected. Fix consistently across all engine conftests
   (gate the bootstrap to `@pytest.mark.django_db` tests) rather than diverging one
-  — a cross-cutting test-infra change, deferred from M9.
+  — a cross-cutting test-infra change, deferred from M9. **DELIVERED by M17a.**
 
 - [ ] **Quest runtime — giver resolution + deed-completion event hooks**
   (deferred from M13; depends on the spawner/world-build layer). Two pieces, both
