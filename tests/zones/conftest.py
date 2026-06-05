@@ -1,8 +1,10 @@
 """Fixtures for zone engine tests (requires pytest-django / Evennia).
 
-Pure-data zone tests (test_keep.py) never carry @pytest.mark.django_db so
-this bootstrap skips entirely when they run in isolation; only the build-time
-tests (test_keep_build.py) trigger the Evennia boot.
+Pure-data zone tests (e.g. test_keep.py) never carry @pytest.mark.django_db so
+this bootstrap skips entirely when they run in isolation; the engine
+(@pytest.mark.django_db) tests in this directory — the build-time and
+populated-world suites (test_keep_build.py, test_caves.py, test_shrine_build.py,
+…) — trigger the Evennia boot once per session.
 """
 
 import evennia

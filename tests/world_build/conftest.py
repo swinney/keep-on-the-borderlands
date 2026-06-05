@@ -2,8 +2,9 @@
 
 Pure tests (``test_templates.py``, ``test_loadharness.py``, and the pure cases
 in ``test_spawner.py``) never carry @pytest.mark.django_db so this bootstrap
-skips entirely when they run in isolation; only the spawner materialisation and
-orchestrator tests trigger the Evennia boot.
+skips entirely when they run in isolation; the engine (@pytest.mark.django_db)
+tests in this directory — the spawner materialisation, orchestrator, givers, and
+deed-hook suites — trigger the Evennia boot once per session.
 """
 
 import evennia

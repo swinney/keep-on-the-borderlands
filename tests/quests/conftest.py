@@ -1,8 +1,10 @@
 """Fixtures for quest engine tests (requires pytest-django / Evennia).
 
-Pure-core tests (test_guildmaster.py) never carry @pytest.mark.django_db so
-this bootstrap skips entirely when they run in isolation; only the engine tests
-(test_guildmaster_engine.py) trigger the Evennia boot.
+Pure-core tests (e.g. test_guildmaster.py) never carry @pytest.mark.django_db so
+this bootstrap skips entirely when they run in isolation; the engine
+(@pytest.mark.django_db) tests in this directory (test_guildmaster_engine.py,
+test_quests.py, test_season_global.py, …) trigger the Evennia boot once per
+session.
 """
 
 import evennia
