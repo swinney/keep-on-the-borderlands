@@ -76,9 +76,10 @@ evennia migrate --noinput
 
 # ── 3. Idempotent superuser (account #1), non-interactively from env. Plain
 # Django (not `evennia shell`): no onboarding prompt, and autocommit persists it.
-if [ "$(count_rows accounts_accountdb)" = "0" ]; then
-  log "creating superuser '${DJANGO_SUPERUSER_USERNAME}'..."
-  DJANGO_SETTINGS_MODULE=server.conf.settings python -c "
+# Idempotent by the *configured username* (not merely "any account exists"), so a
+# fresh boot, a restart, or a DB with other accounts all converge correctly.
+log "ensuring superuser '${DJANGO_SUPERUSER_USERNAME}'..."
+DJANGO_SETTINGS_MODULE=server.conf.settings python -c "
 import os
 import django
 
@@ -86,16 +87,17 @@ django.setup()
 from django.contrib.auth import get_user_model
 
 Account = get_user_model()
-Account.objects.create_superuser(
-    os.environ['DJANGO_SUPERUSER_USERNAME'],
-    os.environ.get('DJANGO_SUPERUSER_EMAIL', ''),
-    os.environ['DJANGO_SUPERUSER_PASSWORD'],
-)
-print('[entrypoint] superuser created')
+name = os.environ['DJANGO_SUPERUSER_USERNAME']
+if Account.objects.filter(username=name).exists():
+    print('[entrypoint] superuser already present — skipping creation')
+else:
+    Account.objects.create_superuser(
+        name,
+        os.environ.get('DJANGO_SUPERUSER_EMAIL', ''),
+        os.environ['DJANGO_SUPERUSER_PASSWORD'],
+    )
+    print('[entrypoint] superuser created')
 "
-else
-  log "superuser already present — skipping creation"
-fi
 
 # ── 4+6. Start in the foreground with an orderly shutdown path. First boot runs
 # at_initial_setup -> build_all() inside the server process (account #1 exists).

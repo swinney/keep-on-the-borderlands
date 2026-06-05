@@ -283,9 +283,9 @@ container choice — `docs/decisions/0001-container-runtime.md` /
 dedicated serving image (`Containerfile.runtime`) that ships only Evennia + the
 game code — not the Ralph build-loop image.
 
-**Prerequisites:** a container runtime with the Compose plugin — either
-`podman` + `podman-compose`, or `docker` (Compose v2 is built in). No host Python
-needed.
+**Prerequisites:** a container runtime with Compose — either `podman` (using its
+built-in `podman compose` subcommand), or `docker` (Compose v2 is built in). No
+host Python needed.
 
 > **Podman note.** `podman compose` delegates to the docker-compose provider,
 > which talks to the rootless Podman API socket. If `podman compose up` errors
@@ -322,10 +322,12 @@ podman compose up -d --build      # or: docker compose up -d --build
 ```
 
 First boot is automatic and needs no TTY: the entrypoint migrates the database,
-creates the superuser from `.env`, runs the world build (`build_all()`, logged —
-not the silent `at_initial_setup` hook), then starts Portal + Server. The build
-takes a little time; the healthcheck has a grace period so the container is not
-flagged unhealthy while the world populates.
+creates the superuser (account #1) from `.env`, then starts Portal + Server —
+whose first-boot `at_initial_setup` hook runs the world build (`build_all()`).
+Because that hook swallows tracebacks, the entrypoint then **verifies** the world
+populated and logs `world build OK` (or exits non-zero rather than serving an
+empty world). The build takes a little time; the healthcheck has a grace period
+so the container is not flagged unhealthy while the world populates.
 
 Watch it come up:
 
@@ -342,11 +344,19 @@ superuser from `.env`, or `create` a new account.
 
 ### 4. Re-populate (idempotent)
 
-The world build runs on every boot and is idempotent, so a restart self-heals a
-half-built world. To force a rebuild against the running container:
+The world build is verified on every boot and is idempotent, so restarting the
+container self-heals a half-built world:
 
 ```sh
-podman compose exec mud evennia shell -c "from world.build.orchestrator import build_all; build_all()"
+podman compose restart mud
+```
+
+To force a rebuild against the running server without a restart, run it in-game as
+the superuser (the `py` command executes in the server process — unlike
+`evennia shell -c`, which is unreliable against a live server):
+
+```
+py from world.build.orchestrator import build_all; build_all()
 ```
 
 ### 5. Stop / restart / reset

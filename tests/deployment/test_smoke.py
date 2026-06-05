@@ -27,6 +27,8 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNTIME = os.environ.get("DEPLOY_RUNTIME", "docker")
 PROJECT = "kotb-smoke"
 TELNET_HOST_PORT = int(os.environ.get("TELNET_PORT", "14000"))
+WEB_HOST_PORT = int(os.environ.get("WEB_PORT", "14001"))
+WEBSOCKET_HOST_PORT = int(os.environ.get("WEBSOCKET_PORT", "14002"))
 
 
 def _compose(*args: str) -> subprocess.CompletedProcess[str]:
@@ -110,8 +112,14 @@ def stack() -> Iterator[None]:
 
 
 def test_first_boot_is_noninteractive_and_serves_ports(stack: None) -> None:
-    """Requirement: Deterministic non-interactive first boot + Port surface."""
+    """Requirement: Deterministic non-interactive first boot + Port surface.
+
+    All three player-facing ports must be reachable (telnet, web, websocket);
+    4005/4006 are internal and intentionally unpublished.
+    """
     assert _wait_for_port(TELNET_HOST_PORT), "telnet port never opened (boot hung or failed)"
+    assert _wait_for_port(WEB_HOST_PORT), "web client port (4001) not reachable"
+    assert _wait_for_port(WEBSOCKET_HOST_PORT), "websocket port (4002) not reachable"
 
 
 def test_world_is_populated(stack: None) -> None:

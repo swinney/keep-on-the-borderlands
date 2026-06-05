@@ -18,11 +18,14 @@ the game).
   Evennia's Portal+Server run together in one container (they supervise each other
   over internal AMP; they are **not** split into two services).
 - **A non-interactive entrypoint** that makes first boot deterministic:
-  `migrate` → ensure-superuser-from-env (idempotent) → `build_all()` (explicit,
-  logged — not relying on the silently-swallowed `at_initial_setup` hook) →
-  `evennia start -l` in the foreground → trap `SIGTERM` to `evennia stop`.
-- **Env-injected `SECRET_KEY`** via the existing `secret_settings.py` override
-  seam, so the key is stable across container recreation and never baked into the
+  `migrate` → ensure-superuser-from-env via plain Django (idempotent by username;
+  no onboarding prompt; account #1 must exist before the build) → `evennia start
+  -l` in the foreground, whose first-boot `at_initial_setup` hook runs
+  `build_all()` → **verify** the persisted world and fail loudly if empty (the hook
+  swallows tracebacks) → trap `SIGTERM` to `evennia stop`.
+- **Env-injected `SECRET_KEY`** via the `settings.py` env shim (sitting after the
+  `secret_settings.py` import so it wins), so the key is stable across container
+  recreation and never baked into the
   image.
 - **A named volume** for persistent game state (the SQLite database + logs under
   `mudgame/server/`), so characters, XP, gear, bank, and the leaderboard survive

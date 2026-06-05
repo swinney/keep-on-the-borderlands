@@ -25,15 +25,17 @@ RUN groupadd -g ${USER_GID} mud \
 
 WORKDIR /app
 
-# Dependency install first (better layer caching). pyproject declares
-# evennia==6.0.0 + scipy; packages=[] so this installs deps only — the game code
-# runs from the gamedir on sys.path, not as an installed package.
+# Dependency install first, before the game code, so a code change does not
+# invalidate the (slow) dependency layer. pyproject declares evennia==6.0.0 +
+# scipy; packages=[] so this installs deps only — the game code runs from the
+# gamedir on sys.path, not as an installed package, and is not needed here.
 COPY pyproject.toml README.md ./
+RUN pip install -e .
+
+# Game code + entrypoint last (changes most often → cheapest layers to rebuild).
 COPY mudgame ./mudgame
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-
-RUN pip install -e . \
-    && chmod +x /usr/local/bin/entrypoint.sh \
+RUN chmod +x /usr/local/bin/entrypoint.sh \
     && mkdir -p /app/data /app/mudgame/server/logs \
     && chown -R mud:mud /app
 

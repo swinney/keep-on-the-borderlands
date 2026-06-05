@@ -44,10 +44,14 @@ Podman; (2) whether to reuse the loop image.
   project's own docs and rationale stay Podman-first and rootless. No daemon is
   mandated.
 - **Deterministic boot belongs in an entrypoint.** The real complexity —
-  non-interactive superuser creation, an *explicit and logged* `build_all()`
-  (instead of the silently-swallowed `at_initial_setup` hook), foreground PID 1,
-  and a SIGTERM→`evennia stop` trap — lives in `docker/entrypoint.sh`, which is
-  independently unit-testable via a dry-run hook.
+  non-interactive superuser creation via plain Django (account #1, before start),
+  letting `evennia start`'s `at_initial_setup` run `build_all()` and then
+  *verifying* the persisted world to defeat the hook's swallowed tracebacks,
+  foreground PID 1, and a SIGTERM→`evennia stop` trap — lives in
+  `docker/entrypoint.sh`, which is independently unit-testable via a dry-run hook.
+  (An earlier attempt to call `build_all()` directly via `evennia shell -c` was
+  abandoned — it runs an interactive onboarding prompt and does not reliably
+  commit; see design D3.)
 
 ## Consequences
 
