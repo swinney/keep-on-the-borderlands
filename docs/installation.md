@@ -24,11 +24,53 @@ out explicitly.
 - ~250 MB of disk for the dependency tree (Evennia pulls in Django and Twisted)
   plus the SQLite database the game creates on first boot.
 
-Verify your Python:
+### 1.1 Install Python 3.12+, git, and a venv — per OS
+
+**Linux.** Most current distros ship Python 3.12; older LTS releases default to
+an earlier version, in which case install 3.12 alongside (the
+[deadsnakes PPA](https://launchpad.net/~deadsnakes/+archive/ubuntu/ppa) on
+Ubuntu, or [`pyenv`](https://github.com/pyenv/pyenv)).
 
 ```sh
-python --version      # must print 3.12 or newer
+# Debian 12+ / Ubuntu 24.04+  — the default python3 IS 3.12; use `python3` below
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip git
+
+# Ubuntu 22.04 / older  — default python3 is < 3.12, so get 3.12 from deadsnakes
+sudo add-apt-repository -y ppa:deadsnakes/ppa && sudo apt update
+sudo apt install -y python3.12 python3.12-venv python3-pip git
+
+# Fedora / RHEL / Rocky
+sudo dnf install -y python3.12 python3-pip git
+
+# Arch / Manjaro  (rolling — Python is already ≥ 3.12)
+sudo pacman -S --needed python git
 ```
+
+Evennia and scipy install from prebuilt wheels on common x86-64 / arm64 Linux,
+so no compiler is needed. If pip ever falls back to building scipy from source,
+add a build base first (`build-essential gfortran` on Debian/Ubuntu;
+`gcc-gfortran python3-devel` on Fedora).
+
+**macOS.** Use [Homebrew](https://brew.sh):
+
+```sh
+brew install python@3.12 git
+```
+
+Homebrew installs the interpreter as `python3.12`. Both Apple-silicon and Intel
+Macs get prebuilt scipy/Evennia wheels, so no Xcode toolchain is needed for a
+normal install (only if you ever build from source: `xcode-select --install`).
+
+### 1.2 Verify Python
+
+```sh
+python3.12 --version      # prints 3.12.x
+```
+
+On Debian 12+/Ubuntu 24.04+/macOS where your default `python3` is already ≥ 3.12
+(`python3 --version`), you can use `python3` (or `python`) wherever this guide
+writes `python3.12`.
 
 ---
 
@@ -42,8 +84,8 @@ runtime dependencies — `evennia==6.0.0` and `scipy` — are declared in
 git clone https://github.com/swinney/keep-on-the-borderlands.git
 cd keep-on-the-borderlands
 
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python3.12 -m venv .venv           # or: python3 / python, if that is ≥ 3.12 (see §1.2)
+source .venv/bin/activate          # macOS/Linux (Windows: .venv\Scripts\activate)
 
 pip install -e .                   # installs evennia 6.0.0 + scipy
 ```
