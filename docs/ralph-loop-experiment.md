@@ -515,6 +515,57 @@ artifact alongside the loop mechanics.
 
 ---
 
+### 5.17 The green gate over a hollow world  ·  *liveness ≠ readiness; the smoke test as independent verifier*
+The `add-game-compose` change (containerize the game for Compose) was the first
+built **not** via the loop but through OpenSpec `explore → propose → apply`, with
+the operator in the loop interactively. The unit gate — `ruff` + `mypy --strict`
++ 830 tests — stayed **green the entire time** while the actual container was
+broken three different ways. Only the **end-to-end smoke test** (a real `compose
+up` against a throwaway volume, written straight from the spec's scenarios) found
+them:
+1. the image was missing `server/logs` — a runtime dir git doesn't track, so it
+   never entered the build context — and Evennia couldn't initialise;
+2. `evennia shell -c` (my chosen way to create the superuser + build) runs
+   Evennia's **interactive onboarding prompt** before the snippet and doesn't
+   reliably commit — so writes vanished and the container restart-looped;
+3. `at_initial_setup` builds the world **for account #1**, so the superuser must
+   exist *before* `evennia start`, or the world comes up empty.
+Each "failure" first looked like a product bug and was in fact one — but the
+telltale was that **a port answering is not the world being ready**: Evennia's
+Portal binds telnet 4000 with no database, so every liveness check passed while
+the Server/world was absent. The same liveness-vs-readiness gap then bit the test
+harness itself (it read the room count before the async build finished).
+**Lesson:** the unit test pyramid verifies the *parts*; only an integration test
+that exercises the real artifact end-to-end verifies the *whole*. For a two-process
+app, assert **readiness** (the built world, read from the persisted DB), never mere
+**liveness** (a port). The smoke test is to deployment what Copilot (§5.9) is to
+code review — an independent verifier operating at a level the author's own green
+checks can't see.
+
+**The debugging meta-lesson (a 5.16 echo, inverted):** resolving the three bugs
+took several wrong theories — "the `EVENNIA_DATA_DIR` override isn't applied,"
+"`evennia shell -c` doesn't commit" — and every time the move that actually worked
+was to **stop theorising and inspect the container**: list the `*.db3` files,
+count their tables and rows, dump the *full* boot log. §5.16 was about deferring to
+the user's ground truth on an external system; this is the same discipline turned
+on a system I *controlled* — the database file on the volume was the ground truth,
+not my model of the entrypoint. (Reinforces `defer-to-ground-truth` and
+`triage-before-brute-force`.)
+
+**Two process notes worth a slide.** (a) The spec/design/ADR artifacts were
+*refined mid-implementation* as ground truth corrected the plan (the abandoned
+`evennia shell -c` build is recorded in design D3) — the `apply` workflow treats
+that as normal, and it keeps the change record honest rather than aspirational.
+(b) The CI "failure" was **not a test failure**: the suite legitimately grew to
+~9.5 min and hit the job's 10-min cap, which surfaces as a red ✗ indistinguishable
+from a real break — a silent-truncation cousin. Raising the cap was the fix; the
+lesson is to *read the failure* (`830 passed … operation was canceled`) before
+assuming the code broke. And Copilot again earned its seat: it caught the doc-rot
+my mid-implementation redesign left behind (proposal/ADR/install guide still
+describing the abandoned approach) — the "changed the code, not the story" class.
+
+---
+
 ## 6. Architectural decisions worth presenting
 
 Recorded as ADRs in `docs/decisions/`:
