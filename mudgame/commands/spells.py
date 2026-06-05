@@ -85,8 +85,26 @@ class CmdCast(Command):  # type: ignore[misc]
             caller.msg(f"You have not memorized {spell.name}.")
             return
 
-        # Resolve first; consume the slot only if the spell actually took effect,
-        # so an invalid cast (no/unreachable target) doesn't burn a memorized spell.
+        # In combat, declare the spell now and resolve it at end of round via the
+        # CombatHandler (combat.md §4.1/§5) — damage taken before then disrupts it.
+        # The slot is reserved (still memorized) until resolution or disruption.
+        if _in_combat(caller):
+            # One declaration per round: a second in-combat cast must not clobber
+            # the first (which has a reserved slot awaiting resolution) (PR #25 F4).
+            pending: str | None = caller.db.spell_declaring
+            if pending:
+                pending_spell = get_spell(pending)
+                caller.msg(f"You are already casting {pending_spell.name} this round.")
+                return
+            caller.db.spell_declaring = spell_name
+            caller.db.spell_disrupted = False
+            caller.db.pending_cast = {"spell": spell_name, "target": target_name}
+            caller.msg(f"You begin casting {spell.name}; it completes at the end of the round.")
+            return
+
+        # Out of combat: resolve immediately. Consume the slot only if the spell
+        # actually took effect, so an invalid cast (no/unreachable target) doesn't
+        # burn a memorized spell.
         if not _resolve_spell(caller, spell, target_name):
             return
         memorized.remove(spell_name)
@@ -151,6 +169,52 @@ class CmdRest(Command):  # type: ignore[misc]
             caller.msg(f"You rest and prepare your spells: {', '.join(memorized)}.")
         else:
             caller.msg("You rest. (No spells to memorize at your current level.)")
+
+
+# ── Combat-round declare/resolve (combat.md §4.1, §5) ──────────────────────────
+
+
+def _in_combat(caller: Any) -> bool:
+    """True if the caller is an active combatant in a running CombatHandler.
+
+    Relies on the back-reference ``add_combatant`` stamps onto the combatant; a
+    stopped handler is deleted, so the dangling ref resolves to ``None`` and this
+    returns False once the fight ends.
+    """
+    handler = caller.db.combat_handler
+    if not handler:
+        return False
+    combatants = handler.db.combatants or []
+    return caller in combatants
+
+
+def resolve_pending_cast(caller: Any) -> None:
+    """Resolve a spell declared earlier this round (combat.md §4.1, §5).
+
+    Called by the CombatHandler at end of round. If the caster was disrupted by
+    damage, ``apply_damage`` already cleared ``db.spell_declaring`` and this is a
+    no-op (the slot was lost there). Otherwise the spell effect resolves and, if
+    it took effect, the prepared slot is consumed.
+    """
+    spell_name: str | None = caller.db.spell_declaring
+    pending: dict[str, str] = dict(caller.db.pending_cast or {})
+    if not spell_name:
+        caller.db.pending_cast = None
+        return
+    target_name = pending.get("target", "")
+    try:
+        spell = get_spell(spell_name)
+    except KeyError:
+        caller.db.spell_declaring = None
+        caller.db.pending_cast = None
+        return
+    if _resolve_spell(caller, spell, target_name):
+        memorized: list[str] = list(caller.db.memorized_spells or [])
+        if spell_name in memorized:
+            memorized.remove(spell_name)
+            caller.db.memorized_spells = memorized
+    caller.db.spell_declaring = None
+    caller.db.pending_cast = None
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────

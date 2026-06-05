@@ -69,6 +69,33 @@ _SPELL_LIST: list[SpellData] = [
 _REGISTRY: dict[str, SpellData] = {s.name: s for s in _SPELL_LIST}
 
 
+@dataclass
+class SpellDeclaration:
+    """A spell declared during a combat round, pending end-of-round resolution.
+
+    Models the declare→resolve timing of combat.md §4.1/§5: a caster declares a
+    spell on their initiative and it resolves at the **end of the round**, unless
+    the caster takes damage first — that **disrupts** it, the prepared slot is
+    lost, and no effect occurs. This is the pure state core; the engine layer
+    (``CombatHandler`` + ``Character.apply_damage``) drives the equivalent
+    lifecycle through ``db.spell_declaring``.
+    """
+
+    spell_name: str
+    disrupted: bool = False
+
+    def disrupt(self) -> None:
+        """Record that the caster took damage before resolution (slot lost)."""
+        self.disrupted = True
+
+    def resolves(self) -> bool:
+        """Whether the declared spell takes effect at end of round.
+
+        A declaration resolves iff it was not disrupted in the interim.
+        """
+        return not self.disrupted
+
+
 def get_spell(name: str) -> SpellData:
     """Return the SpellData for ``name``.
 

@@ -49,6 +49,13 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         self.db.memorized_spells: list[str] = []
         self.db.spell_declaring: str | None = None
         self.db.spell_disrupted: bool = False
+        # Payload of a spell declared this combat round (combat.md §4.1/§5),
+        # resolved at end of round by the CombatHandler: {"spell": .., "target": ..}.
+        self.db.pending_cast: dict[str, str] | None = None
+        # Back-reference to the CombatHandler driving the caster's current fight;
+        # set by add_combatant so `cast` knows to declare-and-resolve, not cast
+        # synchronously. None outside combat.
+        self.db.combat_handler = None
         self.db.coin: int = 0
         self.db.bank_balance: int = 0
         # Lifetime gp already converted to XP via XP-on-secure (economy.md §6).
@@ -212,10 +219,9 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         hp = self.traits.hp  # type: ignore[union-attr]
         was_alive = not is_dead(int(hp.value))
         hp.current = max(0, int(hp.value) - amount)
-        # Disrupt any in-progress spell declaration (combat.md §5).
-        # NOTE: currently inert — synchronous `cast` never sets spell_declaring.
-        # Real disruption needs combat-round declare/resolve timing; deferred,
-        # see tasks.md "Spell disruption via combat-round timing".
+        # Disrupt any in-progress spell declaration (combat.md §5): a caster who
+        # declared a spell this round (in combat) but takes damage before the
+        # CombatHandler resolves it loses the prepared slot with no effect.
         declaring: str | None = self.db.spell_declaring
         if declaring:
             memorized: list[str] = list(self.db.memorized_spells or [])
@@ -223,6 +229,7 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
                 memorized.remove(declaring)
                 self.db.memorized_spells = memorized
             self.db.spell_declaring = None
+            self.db.pending_cast = None
             self.db.spell_disrupted = True
             self.msg(f"Your {declaring} spell is disrupted!")
         if was_alive and is_dead(int(hp.value)):

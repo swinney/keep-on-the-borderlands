@@ -20,6 +20,7 @@ from typing import Any
 
 from evennia.scripts.scripts import DefaultScript
 
+from commands.spells import resolve_pending_cast
 from world.rules import dice
 from world.rules.abilities import ability_modifier
 from world.rules.combat import initiative_order, initiative_roll
@@ -138,14 +139,41 @@ class CombatHandler(DefaultScript):
     def add_combatant(self, combatant: Any) -> None:
         if combatant not in self.db.combatants:
             self.db.combatants.append(combatant)
+        # Back-reference so `cast` can tell it is in combat and should declare a
+        # spell for end-of-round resolution rather than cast synchronously (§5).
+        # Set unconditionally: Evennia Attributes can be assigned freely, so this
+        # works for characters created before the Attribute existed too (PR #25 F1).
+        combatant.db.combat_handler = self
 
     def remove_combatant(self, combatant: Any) -> None:
         with contextlib.suppress(ValueError):
             self.db.combatants.remove(combatant)
+        combatant.db.combat_handler = None
+
+    def at_stop(self) -> None:
+        """End-of-combat cleanup: resolve any last declarations, drop back-refs.
+
+        Covers the path where Evennia stops the script because ``is_valid``
+        returned False (no ``at_repeat`` ran), so a spell declared in the final
+        round still completes and no stale ``spell_declaring`` is left behind.
+        Resolution is idempotent — declarations cleared earlier this tick are
+        no-ops here.
+        """
+        combatants: list[Any] = self.db.combatants or []
+        alive = [c for c in combatants if c and int(c.traits.hp.value) > 0]
+        self._resolve_declared_spells(alive)
+        for combatant in combatants:
+            if combatant:
+                combatant.db.combat_handler = None
 
     def at_repeat(self) -> None:
         combatants: list[Any] = self.db.combatants or []
         alive = [c for c in combatants if c and int(c.traits.hp.value) > 0]
+        # Resolve spells declared during the round just completed (§4.1 declare→
+        # resolve): a caster disrupted by damage this round already cleared its
+        # declaration in apply_damage, so this is a no-op for them (§5).
+        self._resolve_declared_spells(alive)
+        alive = [c for c in alive if c and int(c.traits.hp.value) > 0]
         if len(alive) < _MIN_COMBATANTS:
             self.stop()
             return
@@ -169,3 +197,16 @@ class CombatHandler(DefaultScript):
                     f"{combatant.key} acts (initiative {roll_val}).",
                     exclude=[],
                 )
+
+    def _resolve_declared_spells(self, combatants: list[Any]) -> None:
+        """Resolve any end-of-round spell declarations among the living (§4.1, §5).
+
+        A combatant that declared a spell this round (``db.spell_declaring`` still
+        set) completes it now; one disrupted by damage cleared its declaration in
+        ``apply_damage`` and is skipped.
+        """
+        for combatant in combatants:
+            if not combatant or not combatant.attributes.has("spell_declaring"):
+                continue
+            if combatant.db.spell_declaring:
+                resolve_pending_cast(combatant)
