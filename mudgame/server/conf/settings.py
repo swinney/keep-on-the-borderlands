@@ -72,3 +72,28 @@ try:
     from server.conf.secret_settings import *
 except ImportError:
     print("secret_settings.py file not found or failed to import.")
+
+######################################################################
+# Containerized-runtime override (game-deployment / ADR-0006).
+######################################################################
+# When SECRET_KEY is provided in the environment it wins over every value above
+# (including the gitignored secret_settings.py). This lets the Compose runtime
+# inject a stable key from `.env` without baking it into the image, while leaving
+# the host dev path unchanged: with no SECRET_KEY env var set this block is a
+# no-op and secret_settings.py still supplies the key. The entrypoint is what
+# *requires* the variable in the container; settings only consumes it if present.
+import os as _os
+
+_env_secret_key = _os.environ.get("SECRET_KEY")
+if _env_secret_key:
+    SECRET_KEY = _env_secret_key
+
+# EVENNIA_DATA_DIR relocates the SQLite database onto a mounted volume. Evennia
+# keeps the DB and conf/ both under server/, so a volume at server/ would shadow
+# this settings module; pointing the DB at a sibling data dir keeps durable state
+# on the volume without hiding code. Logs stream to stdout in the container (the
+# entrypoint tails them), so only the DB needs a persistent path. No-op on a host
+# with the variable unset.
+_data_dir = _os.environ.get("EVENNIA_DATA_DIR")
+if _data_dir:
+    DATABASES["default"]["NAME"] = _os.path.join(_data_dir, "evennia.db3")

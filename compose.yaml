@@ -1,0 +1,41 @@
+# Keep on the Borderlands — game server (game-deployment / ADR-0006).
+#
+# One service: Evennia's Portal + Server run together in the single `mud`
+# container (they supervise each other over internal AMP; not split per the
+# framework). Portable Compose Spec — runs under both runtimes:
+#
+#   podman compose up -d        # rootless, consistent with ADR-0001
+#   docker compose up -d        # drop-in
+#
+# Configure via `.env` first:  cp .env.example .env  (then fill SECRET_KEY etc.)
+
+services:
+  mud:
+    build:
+      context: .
+      dockerfile: Containerfile.runtime
+    image: kotb-mud:latest
+    env_file: .env
+    ports:
+      # Player-facing only. Internal 4005 (webserver) / 4006 (AMP) stay inside.
+      - "${TELNET_PORT:-4000}:4000"       # telnet
+      - "${WEB_PORT:-4001}:4001"          # web client + website
+      - "${WEBSOCKET_PORT:-4002}:4002"    # web client websocket
+    volumes:
+      # Durable game state (the SQLite DB) lives here via EVENNIA_DATA_DIR. Logs
+      # stream to stdout (view with `compose logs`), not a volume.
+      - gamedata:/app/data
+    restart: unless-stopped
+    # Compose sends SIGTERM on stop; the entrypoint traps it -> `evennia stop`.
+    stop_grace_period: 30s
+    healthcheck:
+      # Telnet port open == Portal up. start_period covers first-boot migrate +
+      # world build so the container isn't marked unhealthy while it populates.
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 4000), 2).close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+volumes:
+  gamedata:

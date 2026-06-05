@@ -272,6 +272,104 @@ py from world.build.orchestrator import build_all; build_all()
 
 ---
 
+## Run with Compose (containerized)
+
+Instead of the host venv path above, you can run the whole game as a container
+with Compose. This is the unattended-friendly path: one declarative file, a
+deterministic non-interactive first boot, and persistent state on a named volume.
+It runs under **both** `podman compose` (rootless, consistent with the project's
+container choice — `docs/decisions/0001-container-runtime.md` /
+`0006-runtime-container-and-compose.md`) and `docker compose` (drop-in). It uses a
+dedicated serving image (`Containerfile.runtime`) that ships only Evennia + the
+game code — not the Ralph build-loop image.
+
+**Prerequisites:** a container runtime with the Compose plugin — either
+`podman` + `podman-compose`, or `docker` (Compose v2 is built in). No host Python
+needed.
+
+> **Podman note.** `podman compose` delegates to the docker-compose provider,
+> which talks to the rootless Podman API socket. If `podman compose up` errors
+> with *"failed to connect to the docker API at …/podman.sock"*, enable the socket
+> once: `systemctl --user enable --now podman.socket`. (Plain `docker compose`
+> needs no such step.)
+
+### 1. Configure
+
+From the repo root, copy the template and fill it in:
+
+```sh
+cp .env.example .env
+```
+
+Edit `.env`:
+
+- **`SECRET_KEY`** — required. Generate a stable random value (changing it later
+  invalidates logged-in sessions):
+  ```sh
+  python3 -c "import secrets; print(secrets.token_urlsafe(50))"
+  ```
+- **`DJANGO_SUPERUSER_USERNAME` / `_PASSWORD` / `_EMAIL`** — the server-owner
+  account, created automatically on first boot (no interactive prompt).
+- Optional `TELNET_PORT` / `WEB_PORT` / `WEBSOCKET_PORT` — override the published
+  host ports (defaults 4000/4001/4002) if something else already binds them.
+
+`.env` is gitignored — it holds secrets and is never committed.
+
+### 2. Build and start
+
+```sh
+podman compose up -d --build      # or: docker compose up -d --build
+```
+
+First boot is automatic and needs no TTY: the entrypoint migrates the database,
+creates the superuser from `.env`, runs the world build (`build_all()`, logged —
+not the silent `at_initial_setup` hook), then starts Portal + Server. The build
+takes a little time; the healthcheck has a grace period so the container is not
+flagged unhealthy while the world populates.
+
+Watch it come up:
+
+```sh
+podman compose logs -f          # look for "world build OK" then the start banner
+podman compose ps               # STATUS becomes healthy once the build finishes
+```
+
+### 3. Connect
+
+Same surfaces as the host path — telnet `localhost:4000`, web
+`http://localhost:4001/` (adjust if you overrode the ports). Log in with the
+superuser from `.env`, or `create` a new account.
+
+### 4. Re-populate (idempotent)
+
+The world build runs on every boot and is idempotent, so a restart self-heals a
+half-built world. To force a rebuild against the running container:
+
+```sh
+podman compose exec mud evennia shell -c "from world.build.orchestrator import build_all; build_all()"
+```
+
+### 5. Stop / restart / reset
+
+```sh
+podman compose stop             # orderly shutdown (SIGTERM -> evennia stop)
+podman compose start            # back up; state preserved
+podman compose down             # remove the container; the named volume persists
+podman compose down -v          # ALSO delete the volume -> wipes all game state
+```
+
+Durable state — characters, XP, gear, bank, leaderboard — lives in the SQLite
+database on the `gamedata` named volume (mounted at `/app/data`). It survives
+`down`/recreation; only `down -v` destroys it. Server logs stream to stdout (view
+with `compose logs`), not the volume.
+
+> **Postgres / TLS.** This Compose setup runs SQLite-in-volume (sufficient at the
+> target 20-50 concurrent) and exposes raw ports. A Postgres service and a
+> TLS-terminating reverse proxy are out of scope here; the design leaves seams for
+> both (see the `game-deployment` change under `openspec/`).
+
+---
+
 ## Running the Ralph Loop (not the game)
 
 The autonomous agent loop that *built* this project is a separate workflow with
