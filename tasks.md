@@ -247,7 +247,12 @@ v1 acceptance is met (M16); these are the deferred-follow-up items, now driven
 one per branch/PR for focused review. Each is `spec(exists)→test→impl`, gated.
 
 - [x] M17a — **Django-free conftests**: gate the `scope="session", autouse=True` Evennia bootstrap to `@pytest.mark.django_db` tests across **all** engine conftests (`tests/quests`, `tests/zones`, `tests/economy`, `tests/world_build`, `tests/acceptance`), so a pure test (e.g. `test_xp_pacing.py`) run in isolation does NOT boot Django (verify with `pytest --setup-show` on a pure test) while full-suite runs stay green. The fix should be uniform (don't diverge one conftest). Then check off the matching Deferred-follow-ups item. Per the deferred note (Copilot PR #8, #22 F2).
-- [ ] ⛔ MILESTONE GATE (M17a → review) — write "M17a Django-free conftests complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
+- [x] ⛔ MILESTONE GATE (M17a → review) — **passed**: merged via PR #24 (CI green; Copilot's 3 docstring nits fixed inline). Engine conftests now gate the Evennia bootstrap to sessions containing a `@pytest.mark.django_db` test — pure tests run Django-free in isolation (verified: isolated pure run 0.5s, no init). Built by the loop on Sonnet (turn 87).
+
+## M17b — Spell disruption via combat-round timing (combat.md §5)
+
+- [ ] Make `cast` **declare** a spell (set `spell_declaring`) and resolve it at end of round via the `CombatHandler`, so damage taken before resolution disrupts it (combat.md §5). M2 shipped the inert `apply_damage` hook (synchronous casting never declares); this needs the round loop's declare→resolve phases. Re-enable the skipped `tests/combat/test_combat.py::test_damage_disrupts_unresolved_cast`. Then check off the matching Deferred-follow-ups item. spec→test→impl; full-suite green before commit.
+- [ ] ⛔ MILESTONE GATE (M17b → review) — write "M17b spell disruption complete — paused for review." to STATUS.md and stop. Make no code changes and do not check this box.
 
 ## Deferred follow-ups
 
