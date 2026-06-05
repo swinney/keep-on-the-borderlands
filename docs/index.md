@@ -9,6 +9,9 @@ This site is the project's living documentation.
 
 ## Start here
 
+- **[Installation & run guide](installation.md)** — install the game, build and
+  populate the world on first boot, and connect by telnet or the web client.
+  *(If you want to actually run the MUD, read this.)*
 - **[The Ralph Loop — A Field Log](ralph-loop-experiment.md)** — the candid
   story of building this with an unattended agent loop: what worked, what broke,
   and the patterns worth stealing. *(If you're here for the experiment, read
