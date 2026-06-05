@@ -156,7 +156,8 @@ create  <username> <password>     # create a new player account
 
 Open **`http://localhost:4001/`** in a browser and click through to the web
 client, or go straight to **`http://localhost:4001/webclient/`**. The web
-client carries the project's theming (deep-purple/amber palette,
+client carries the project's theming (a dark-parchment palette — near-black
+background, tan text, dark-red accent, gold links;
 `mudgame/web/static/webclient/css/theme.css`) and the same MOTD. Log in or
 create an account with the same `connect` / `create` flow.
 
