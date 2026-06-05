@@ -32,9 +32,13 @@ an earlier version, in which case install 3.12 alongside (the
 Ubuntu, or [`pyenv`](https://github.com/pyenv/pyenv)).
 
 ```sh
-# Debian / Ubuntu  (24.04+ ships Python 3.12; on 22.04 add the deadsnakes PPA first)
+# Debian 12+ / Ubuntu 24.04+  — the default python3 IS 3.12; use `python3` below
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip git
+
+# Ubuntu 22.04 / older  — default python3 is < 3.12, so get 3.12 from deadsnakes
+sudo add-apt-repository -y ppa:deadsnakes/ppa && sudo apt update
+sudo apt install -y python3.12 python3.12-venv python3-pip git
 
 # Fedora / RHEL / Rocky
 sudo dnf install -y python3.12 python3-pip git
@@ -61,11 +65,12 @@ normal install (only if you ever build from source: `xcode-select --install`).
 ### 1.2 Verify Python
 
 ```sh
-python3.12 --version      # must print 3.12 or newer
+python3.12 --version      # prints 3.12.x
 ```
 
-If `python3.12` isn't found but your default `python3` is already ≥ 3.12, use
-`python3` (or `python`) wherever this guide writes `python3.12`.
+On Debian 12+/Ubuntu 24.04+/macOS where your default `python3` is already ≥ 3.12
+(`python3 --version`), you can use `python3` (or `python`) wherever this guide
+writes `python3.12`.
 
 ---
 
