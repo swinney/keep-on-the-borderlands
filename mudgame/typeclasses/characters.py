@@ -65,6 +65,22 @@ class PlayerCharacter(ObjectParent, DefaultCharacter):
         # world.quests.state for the entry shape and the pure state machine.
         self.db.quests: dict[str, object] = {}
 
+        # Spawn at the recall point (the Inner Bailey, CLAUDE.md §2 / zones/keep.md).
+        # Evennia's default creation leaves location at START_LOCATION, which this
+        # project does not set, so without this a freshly `create`d character has
+        # no location and is unreachable. Only fill an *unset* location, and only
+        # when the Inner Bailey exists (its recall tag is present once the world is
+        # built): this preserves a location explicitly passed to create_object(),
+        # and is a no-op for the God character created during at_initial_setup,
+        # before the Keep is built (it keeps its default Limbo placement).
+        # (`home` is intentionally not set: Evennia overwrites it with DEFAULT_HOME
+        # after this hook, and recall uses the inner_bailey tag via
+        # _find_recall_room, not `home`.)
+        if self.location is None:
+            recall_rooms = search_object_by_tag("inner_bailey")
+            if recall_rooms:
+                self.location = recall_rooms[0]
+
     @property
     def computed_ac(self) -> int:
         dex_score: int = int(self.traits.dex.value)  # type: ignore[union-attr]

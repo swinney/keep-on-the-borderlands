@@ -126,3 +126,24 @@ def test_rest_memorizes_in_any_safe_keep_room(built_keep: None) -> None:
         assert len(char.db.memorized_spells or []) == 1
     finally:
         char.delete()
+
+
+@pytest.mark.django_db
+def test_new_character_spawns_at_recall_point(built_keep: None) -> None:
+    """A newly created character is placed at the Inner Bailey recall/spawn point.
+
+    Regression (zones/keep.md): Evennia's default character creation leaves
+    ``location`` at ``START_LOCATION``, which this project never sets — so a
+    freshly ``create``d character had *no* location and was unreachable until a
+    superuser teleported it. The other onboarding tests masked this by assigning
+    ``char.location`` by hand; this one asserts creation *alone* spawns the
+    character at the recall point.
+    """
+    recall = _find_room("inner_bailey")
+    assert recall is not None, "Inner Bailey (recall point) is built"
+
+    char = create.create_object(CHARACTER_TYPECLASS, key="FreshSpawn")
+    try:
+        assert char.location == recall, "new character spawns at the Inner Bailey"
+    finally:
+        char.delete()
