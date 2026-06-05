@@ -18,7 +18,8 @@ from **what Phase 1 adds**. Cross-references `pyproject.toml`, `Containerfile`,
 | Tests | `pyproject.toml [tool.pytest]`, `tests/` | `testpaths=["tests"]`, strict markers/config; Phase 0 stubs under `tests/<system>/` |
 | CI | `.github/workflows/ci.yml` | `ruff format --check` → `ruff check` → `mypy` → `pytest`; 10-min cap; cancels superseded runs |
 | Pre-commit | `.pre-commit-config.yaml` | mirrors CI; mypy hook scoped to `^tests/.*\.py$` |
-| Container | `Containerfile`, `Makefile` | Podman sandbox (ADR 0001); installs evennia + tooling + Claude Code; `make build/login/loop` |
+| Container (build loop) | `Containerfile`, `Makefile` | Podman sandbox (ADR 0001); installs evennia + tooling + Claude Code; `make build/login/loop` |
+| Container (game runtime) | `Containerfile.runtime`, `compose.yaml`, `docker/entrypoint.sh`, `.env.example` | Lean serving image + Compose (ADR 0006); deterministic non-interactive boot; `game-deployment` spec; podman/docker. See `docs/installation.md` "Run with Compose" |
 | Loop runner | `scripts/ralph.sh` | turn logging, STATUS.md stop condition, auth guard |
 | Specs workspace | `openspec/` | `spec-driven` schema; the `b2-mud-v1-design` change |
 | ADRs | `docs/decisions/0001..0003` | Podman, Pro/Max auth, uv |

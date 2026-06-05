@@ -1,0 +1,48 @@
+# Containerfile.runtime — Keep on the Borderlands GAME SERVER image.
+#
+# Distinct from ./Containerfile (the Ralph build-loop sandbox, which bakes in
+# Claude Code + dev tooling). This image *serves the game* and ships only the
+# Evennia runtime + game code — no agent, no node, no test/lint tooling.
+# Dockerfile syntax, so it builds under both `podman build` and `docker build`.
+# See ADR-0006 and openspec/changes/add-game-compose.
+
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    LANG=C.UTF-8 \
+    GAME_DIR=/app/mudgame \
+    EVENNIA_DATA_DIR=/app/data
+
+# Non-root runtime user. Match the host UID/GID for tidy volume ownership
+# (override with --build-arg if yours differs).
+ARG USER_UID=1000
+ARG USER_GID=1000
+RUN groupadd -g ${USER_GID} mud \
+    && useradd -m -u ${USER_UID} -g ${USER_GID} -s /bin/bash mud
+
+WORKDIR /app
+
+# Dependency install first, before the game code, so a code change does not
+# invalidate the (slow) dependency layer. pyproject declares evennia==6.0.0 +
+# scipy; packages=[] so this installs deps only — the game code runs from the
+# gamedir on sys.path, not as an installed package, and is not needed here.
+COPY pyproject.toml README.md ./
+RUN pip install -e .
+
+# Game code + entrypoint last (changes most often → cheapest layers to rebuild).
+COPY mudgame ./mudgame
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh \
+    && mkdir -p /app/data /app/mudgame/server/logs \
+    && chown -R mud:mud /app
+
+USER mud
+WORKDIR /app/mudgame
+
+# Player-facing ports only. Internal 4005 (webserver) / 4006 (AMP) stay unexposed.
+EXPOSE 4000 4001 4002
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

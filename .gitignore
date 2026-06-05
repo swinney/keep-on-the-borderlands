@@ -33,3 +33,7 @@ server.log
 # MkDocs build output (published to Pages by CI, never committed).
 site/
 .cache/
+
+# Compose runtime config (game-deployment). The real .env holds SECRET_KEY and
+# superuser credentials — never commit it. .env.example is the tracked template.
+.env

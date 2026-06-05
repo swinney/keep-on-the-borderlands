@@ -1,0 +1,40 @@
+# Build context for Containerfile.runtime (game-deployment). Keep the serving
+# image lean and free of host secrets / runtime state.
+
+# VCS + dev environments
+.git
+.gitignore
+.venv
+.ralph
+.claude
+
+# Python caches / build artifacts
+__pycache__
+*.py[cod]
+*.egg-info
+.mypy_cache
+.ruff_cache
+.pytest_cache
+htmlcov
+.coverage
+.coverage.*
+
+# Not needed at runtime (no packages installed from these)
+tests
+docs
+openspec
+site
+*.md
+!README.md
+
+# The Ralph-loop image's own context (separate concern)
+Containerfile
+Makefile
+
+# Compose / local config — must NOT bake host secrets or the host DB into layers
+.env
+mudgame/server/conf/secret_settings.py
+mudgame/server/*.db3
+mudgame/server/*.pid
+mudgame/server/*.restart
+mudgame/server/logs

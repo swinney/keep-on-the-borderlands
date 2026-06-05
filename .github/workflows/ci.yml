@@ -16,7 +16,10 @@ jobs:
   quality:
     name: ruff · mypy --strict · pytest
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The engine suite boots Evennia per session and runs ~9.5 min on CI runners;
+    # 10 min left no headroom (setup+ruff+mypy pushed the job over and it was
+    # canceled mid-finalisation). 15 min gives room for continued suite growth.
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
