@@ -22,7 +22,10 @@ several more options for customizing the Guest account system.
 
 """
 
+from typing import Any
+
 from evennia.accounts.accounts import DefaultAccount, DefaultGuest
+from evennia.utils.search import search_object_by_tag
 
 
 class Account(DefaultAccount):
@@ -136,7 +139,23 @@ class Account(DefaultAccount):
 
     """
 
-    pass
+    def at_post_create_character(self, character: Any, **kwargs: Any) -> None:
+        """Spawn newly created characters at the Inner Bailey recall point.
+
+        `Account.create_character` places a new character at `START_LOCATION`
+        (Evennia's default resolves to Limbo), which this project does not point
+        at the Keep — so without this a freshly created player lands in Limbo,
+        with no exits into the game. This hook runs *after* the character and its
+        location are created (CLAUDE.md §2 / zones/keep.md: Inner Bailey is the
+        recall/spawn point), so it reliably overrides that default placement —
+        unlike `Character.at_object_creation`, whose result the passed `location`
+        overwrites. A no-op before the world is built (no recall tag yet).
+        """
+        super().at_post_create_character(character, **kwargs)
+        recall_rooms = search_object_by_tag("inner_bailey")
+        if recall_rooms:
+            character.home = recall_rooms[0]
+            character.location = recall_rooms[0]
 
 
 class Guest(DefaultGuest):
