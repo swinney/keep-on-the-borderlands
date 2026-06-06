@@ -45,6 +45,29 @@ list.
 `help <command>` is always the source of truth for a command's exact usage — this
 guide summarizes, the game itself is definitive.
 
+### Entering buildings
+
+There's no `enter` command and you can't type a building's name — **buildings are
+rooms you walk into by their compass direction.** Each shop, the tavern, the inn,
+the bank, and so on sits one step off an open area (the Outer Bailey, Fountain
+Square, the Smithy Yard). `look` lists the exits with the destination in
+parentheses, e.g.:
+
+```
+Exits: ... southeast (The One-Eyed Cat), southwest (Provisioner's Store)
+```
+
+To **go in**, type that direction — full word or abbreviation both work:
+
+```
+> southwest        (or: sw)
+Provisioner's Store
+```
+
+To **leave**, walk the reverse direction (here `northeast` / `ne` back to the
+Outer Bailey). So "enter the tavern" just means: from the Outer Bailey, read the
+exit list, see `southeast (The One-Eyed Cat)`, and type `southeast`.
+
 ---
 
 ## 3. The Keep — shops, bank, tavern
