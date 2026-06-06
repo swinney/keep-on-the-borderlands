@@ -66,8 +66,10 @@ Wall walks ring the outer bailey. `main_gate → wilderness:keep_road`.
 ## Features
 
 - **Spawn:** newly created characters spawn at `inner_bailey` (the recall point).
-  Set on the character at creation (`PlayerCharacter.at_object_creation` resolves
-  the `inner_bailey` recall tag), since the project sets no `START_LOCATION`.
+  Placed by `Account.at_post_create_character`, which resolves the `inner_bailey`
+  recall tag *after* signup assigns the default `START_LOCATION` (Evennia → Limbo),
+  since the project points no `START_LOCATION` at the Keep. (The character-level
+  `at_object_creation` hook can't do this — the passed `location` overwrites it.)
 - **Recall:** all recall returns to `inner_bailey`.
 - **Rest:** the inn (or any safe Keep room) permits spell memorization (R8).
 - **No combat** inside the Keep in v1 (PvP disabled; garrison repels intruders).
