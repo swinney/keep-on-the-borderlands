@@ -44,6 +44,7 @@ validation:
 nav:
   - Home: index.md
   - Install & run: installation.md
+  - Playing the game: playing.md
   - The Ralph Loop:
       - Experiment field log: ralph-loop-experiment.md
       - Loop strategy & container: ralph-loop.md
