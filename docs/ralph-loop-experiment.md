@@ -607,6 +607,39 @@ a convenient proxy.
 
 ---
 
+### 5.19 "Acceptance-complete" over a half-built game  ·  *the gate measured systems, not the product*
+The loop reported **v1 acceptance-complete** at M16 — all eight OpenSpec criteria
+(C1–C8) machine-checked green — and was one deferred-polish list away from writing
+the terminal **"RALPH: project complete."** The operator believed the project was
+finished. Then they sat down to *play* it, and couldn't make a real character: no
+class selection, no rolled stats, no leveling, and bought weapons/armor that don't
+touch combat. The spec corpus had **always described these** — `combat.md` §3/§6/§7
+spell out character creation, advancement, and equipment — but the **acceptance
+criteria never required them.** C1–C8 verified that *systems exist and compose*:
+the world builds, factions react, repop holds the political layer, 26 quests wire
+up, latency is under budget, scale is met. All true. None of them asked "can a
+human create a character, level it, gear it, and play?" So an entire player-facing
+layer was specified, never built, and the gate still went green — and would have
+declared the whole project done.
+
+**Lesson:** machine-checkable acceptance criteria are a *proxy* for "done," and a
+proxy only covers what you thought to encode. Here the criteria were drawn from
+subsystem *presence and composition*, not from the *player's experience*, so they
+were satisfiable by a world you can walk through but not really play. This is the
+same failure family as §5.17 (a green gate over a hollow world) and §5.18 (a test
+that fakes the path), escalated one level: this time the gap was in the
+**acceptance criteria themselves**. Three guards fall out of it: (1) write
+acceptance criteria from the user's verbs — "create → level → equip → fight → die →
+return" — not just "subsystem X is present and tested"; (2) a **human play-through
+is a required acceptance step**, not a post-launch nicety (it's the only check that
+exercises the criteria you forgot to write); and (3) treat any "complete" signal as
+*"complete against the criteria we wrote,"* and periodically re-derive the criteria
+from the spec corpus and the lived product — the distance between them is the real
+backlog. That distance is now captured as the `rpg-and-runtime-completion` change;
+"acceptance-complete" was honest about the gate and wrong about the game.
+
+---
+
 ## 6. Architectural decisions worth presenting
 
 Recorded as ADRs in `docs/decisions/`:
