@@ -587,6 +587,24 @@ not a victory lap. (Copilot then caught the fix's over-reach — it would have
 overridden an explicitly-passed `location` — narrowing it to "only fill an unset
 location": the independent reviewer trimming the fix, exactly as in §5.9.)
 
+**Coda — the fix repeated the bug (the lesson, recursively).** The §5.18 fix above
+*did not actually work*, and the operator found that by — again — playing: a new
+account still spawned in Limbo. The fix lived in `Character.at_object_creation`,
+but the real signup path (`Account.create_character`) passes
+`location=START_LOCATION` *after* that hook, overriding it; only a bare
+`create_object` with no location (what the fix's own test used) ever exercised the
+patched code. So the fix for "the test faked the spawn" shipped with **a test that
+faked the spawn the same way** — and Copilot's "only fill an unset location" narrowing,
+correct in the abstract, actively *protected* the wrong path. The real fix moved to
+`Account.at_post_create_character` (the hook Evennia calls *after* the location is
+set), and this time verification ran the **real** API both in a unit test
+(`account.create_character`) and end-to-end in a fresh container (telnet/account
+creation → character in the Inner Bailey, `MATCH=True`). The meta-lesson hardens:
+when a class of bug is "the test exercises a different path than production," the
+*fix* is in that same blast radius until you verify against the real path — write
+the test through the API production uses, and run it against the real artifact, not
+a convenient proxy.
+
 ---
 
 ## 6. Architectural decisions worth presenting
