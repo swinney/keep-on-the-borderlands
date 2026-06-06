@@ -566,6 +566,29 @@ describing the abandoned approach) — the "changed the code, not the story" cla
 
 ---
 
+### 5.18 The player is the last verifier  ·  *830 green tests over an unplayable game*
+Immediately after §5.17, the operator did the one thing no part of the harness
+does: **played the game.** They created an account and found their character had
+**no location at all** — `create`d players spawned nowhere and were unreachable
+until a superuser teleported them. 830 passing tests, a green container smoke
+(§5.17), and a clean Copilot pass had all signed off on a game you could not
+actually start. The cause was textbook: `at_object_creation` never set a
+location, and the project sets no `START_LOCATION`. The reason the suite missed it
+is the sharpest part — the onboarding test *set `char.location` by hand* with the
+comment "spawns at the recall point." It **simulated the spawn**, so it verified
+everything *downstream* of placement (gold, shops, hire, rest) while never testing
+placement itself. A green test that fakes the one precondition that matters is
+worse than no test: it radiates false confidence. **Lesson:** automated coverage
+verifies the parts you *thought* to check; a human exercising the real artifact
+end-to-end is the only thing that surfaces the precondition you assumed. "All
+tests green" and "the smoke test passed" do not imply "playable" — at some point a
+person has to actually play it, and that session is itself a verification stage,
+not a victory lap. (Copilot then caught the fix's over-reach — it would have
+overridden an explicitly-passed `location` — narrowing it to "only fill an unset
+location": the independent reviewer trimming the fix, exactly as in §5.9.)
+
+---
+
 ## 6. Architectural decisions worth presenting
 
 Recorded as ADRs in `docs/decisions/`:
