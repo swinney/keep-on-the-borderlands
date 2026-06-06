@@ -213,6 +213,107 @@ The Caves are tribe territory; the Shrine is the deep end (some rooms block reca
 
 ---
 
+## Worked examples
+
+Illustrative sessions. The **commands, room names, exits, item names, and prices
+are real**; the room descriptions and exact line formatting are paraphrased (your
+client and theme will differ).
+
+### Travelling from your spawn to a shop
+
+You spawn in the **Inner Bailey**. To reach the Provisioner's Store, head out
+through the gates — the shops ring the Outer Bailey:
+
+```
+> look
+Inner Bailey
+(the keep's inner courtyard — the recall point)
+Exits: south (Inner Gatehouse), east (Castellan's Audience Chamber), up (Keep Tower)
+
+> south
+Inner Gatehouse
+
+> south
+Outer Bailey
+Exits: north (Inner Gatehouse), south (Entry Yard), east (Eastern Wall Walk),
+       west (Western Wall Walk), northeast (Fountain Square), northwest (Smithy Yard),
+       southeast (The One-Eyed Cat), southwest (Provisioner's Store)
+
+> southwest
+Provisioner's Store
+```
+
+To **leave the Keep** for the Wilderness and the Caves instead, go the other way
+from the Outer Bailey: `south` → Entry Yard, `south` → Gatehouse Passage, `south`
+→ Main Gate.
+
+### Exploring an area
+
+Read the room with `look`, walk its exits to map it, and `look <thing>` to inspect
+what you see. `map` renders the coordinate grid for the Wilderness and Caves.
+
+```
+> look
+Outer Bailey
+(the broad muster yard; the hub of the Keep)
+Exits: north, south, east, west, northeast, northwest, southeast, southwest
+You see: a man-at-arms
+
+> look man
+(a description of the guard)
+
+> northeast
+Fountain Square
+Exits: north (The Traveller's Rest), south (Moneychanger & Vault),
+       east (Guildhall), west (Chapel Nave), southeast (Trader's Post)
+
+> map
+(the grid map — most useful out in the Wilderness and the Caves of Chaos)
+```
+
+Tip: every room lists its exits; follow them to learn an area, and use `look` on
+NPCs, features, or items before you interact.
+
+### Interacting with a shop
+
+At the **Provisioner's Store**, list the wares, buy, and check your pack:
+
+```
+> list
+Wares for sale:
+  torch - 1 gp
+  oil_flask - 2 gp
+  rope_50ft - 1 gp
+  rations_standard - 5 gp
+  lantern - 10 gp
+  holy_water - 25 gp
+  ... (and more)
+
+> buy torch
+You buy torch for 1 gp. You have 104 gp left.
+
+> buy lantern
+You buy lantern for 10 gp. You have 94 gp left.
+
+> inventory
+You are carrying:
+  torch
+  lantern
+```
+
+Sell loot back at the **Trader's Post** (off Fountain Square, `southeast`) — the
+Trader is the one vendor that *buys*, at half the list price:
+
+```
+> sell dagger
+You sell dagger for 1 gp.
+```
+
+If a vendor doesn't stock an item you try to buy: `I don't deal in that.` If you
+can't afford it: `You can't afford that (40 gp).`
+
+---
+
 ## 10. Current state & limits
 
 This is an honest snapshot of what is and isn't a player-facing flow today. The
