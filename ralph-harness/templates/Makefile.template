@@ -1,0 +1,68 @@
+# Ralph Loop driver (template). Convenience targets to build the sandbox image,
+# authenticate Claude Code once, and run the loop.
+#
+# Adopt by filling the two placeholders below; they should match your ralph.conf
+# (RALPH_CONTAINER / RALPH_RUNTIME). All three values stay overridable on the
+# command line, e.g. `make loop IMAGE=my-loop` or `RALPH_MODEL=… make loop`.
+#
+# PLACEHOLDERS (the closed set):
+#   {{CONTAINER_IMAGE}}  image/container name (match ralph.conf RALPH_CONTAINER)
+#   {{RUNTIME}}          container CLI (match ralph.conf RALPH_RUNTIME; e.g. podman)
+
+IMAGE      ?= {{CONTAINER_IMAGE}}
+RUNTIME    ?= {{RUNTIME}}
+WORKSPACE  := $(CURDIR)
+CLAUDE_DIR := $(WORKSPACE)/.ralph/claude-home
+SCRIPTS    := ralph-harness/scripts
+
+# Common run flags for every container target.
+#   --userns=keep-id  map host UID/GID into the container so files written under
+#                     /workspace come out owned by you on the host.
+#   -e RALPH_MODEL    forward the host RALPH_MODEL (if set) to the loop.
+#   -v workspace      the project tree.
+#   -v claude-home    persists Claude Code auth across runs.
+RUN_FLAGS := \
+  --userns=keep-id \
+  -e RALPH_MODEL \
+  -v $(WORKSPACE):/workspace \
+  -v $(CLAUDE_DIR):/home/claude/.claude
+
+.PHONY: help build login loop loop-once shell status clean
+
+help:
+	@echo "Targets:"
+	@echo "  build      build the $(IMAGE) sandbox image"
+	@echo "  login      one-time: authenticate Claude Code (Pro/Max or API key)"
+	@echo "  loop       run the Ralph Loop in the foreground (Ctrl-C to stop)"
+	@echo "  loop-once  run exactly one turn against PROMPT.md (no loop)"
+	@echo "  status     print a digest of loop status (host-side)"
+	@echo "  shell      drop into an interactive shell in the container"
+	@echo "  clean      remove the image (preserves saved auth)"
+
+build:
+	$(RUNTIME) build \
+	  --build-arg USER_UID=$$(id -u) \
+	  --build-arg USER_GID=$$(id -g) \
+	  -t $(IMAGE) -f Containerfile .
+
+login:
+	@mkdir -p $(CLAUDE_DIR)
+	$(RUNTIME) run --rm -it $(RUN_FLAGS) --name $(IMAGE)-login $(IMAGE) claude login
+
+loop:
+	@mkdir -p $(CLAUDE_DIR)
+	$(RUNTIME) run --rm -it $(RUN_FLAGS) --name $(IMAGE) $(IMAGE) ./$(SCRIPTS)/ralph.sh
+
+loop-once:
+	@mkdir -p $(CLAUDE_DIR)
+	$(RUNTIME) run --rm -it $(RUN_FLAGS) --name $(IMAGE)-once $(IMAGE) ./$(SCRIPTS)/ralph.sh --once
+
+shell:
+	@mkdir -p $(CLAUDE_DIR)
+	$(RUNTIME) run --rm -it $(RUN_FLAGS) --name $(IMAGE)-shell $(IMAGE)
+
+status:
+	@./$(SCRIPTS)/ralph-status.sh
+
+clean:
+	$(RUNTIME) rmi $(IMAGE) || true

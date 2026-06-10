@@ -1,0 +1,37 @@
+# Worked example: Containerfile for the "Acme Widgets" sample (Python library).
+# Only the toolchain block differs from ../templates/Containerfile.template.
+
+FROM python:3.12-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8
+
+# Generic system tools the harness itself needs.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        curl \
+        ca-certificates \
+        tmux \
+        nodejs \
+        npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Claude Code, installed globally so `claude` is on PATH for any user.
+RUN npm install -g @anthropic-ai/claude-code
+
+# --- project-specific toolchain: the exact tools the gate command runs ------
+# Gate: ruff format . && ruff check . && mypy . && pytest
+RUN pip install --no-cache-dir \
+        ruff==0.15.15 \
+        mypy==2.1.0 \
+        pytest
+# --- end project-specific block ---------------------------------------------
+
+ARG USER_UID=1000
+ARG USER_GID=1000
+RUN groupadd -g ${USER_GID} claude \
+    && useradd -m -u ${USER_UID} -g ${USER_GID} -s /bin/bash claude
+
+USER claude
+WORKDIR /workspace
+CMD ["bash"]

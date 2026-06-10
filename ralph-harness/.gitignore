@@ -1,0 +1,20 @@
+# Ralph harness runtime state — copy these lines into your project's root
+# .gitignore (adjust the path if you set RALPH_STATE_DIR to something other
+# than .ralph/). NONE of this should ever be committed:
+#   .ralph/claude-home/  Claude Code auth tokens — MUST NEVER be committed
+#   .ralph/log/          per-turn output logs (may quote prompt content)
+#   .ralph/current.json  heartbeat for the running turn
+#   .ralph/status.jsonl  git-derived feed of completed turns
+#   .ralph/turn          turn counter
+.ralph/
+
+# A local, uncommitted answer-once config (the example IS committed; the filled
+# copy usually is too — delete this line if you want yours tracked).
+ralph.conf
+# ...but the worked-example config IS part of the kit and stays tracked.
+!example/ralph.conf
+
+# Python test caches from the kit's own test suite.
+__pycache__/
+*.pyc
+.pytest_cache/
