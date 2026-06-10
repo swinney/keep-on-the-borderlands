@@ -122,6 +122,11 @@ run that project's loop, so **the two copies can drift over time.**
 - The live files are the battle-tested originals; the kit lifts their hardcoded
   values (`/workspace`, the `kotb-ralph` image, the Evennia toolchain, the
   KOTB-specific prompt) into config and templates, and adds `RALPH_POLL_INTERVAL`.
+- **Deliberate portability divergences from the originals** (so a diff isn't a
+  surprise): the kit scripts avoid bash-4 associative arrays so they run on
+  bash 3.2 (stock macOS), and `scripts/until_reset.py` aliases
+  `UTC = timezone.utc` so it works on Python 3.7+ (the live copy uses the 3.11+
+  `datetime.UTC`). Behaviour is identical.
 - **Synced from the live files at commit `47d4145`** (live harness logic last
   changed in `f454e6b`). To reconcile later, diff `ralph-harness/scripts/` against
   the repo-root `scripts/` from that point forward.

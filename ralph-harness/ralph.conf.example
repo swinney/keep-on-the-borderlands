@@ -52,5 +52,7 @@ RALPH_POLL_INTERVAL="30"
 # the image/container name the Makefile builds and runs. Default: ralph-loop
 RALPH_CONTAINER="ralph-loop"
 
-# Container runtime CLI. Default: podman (docker is likely compatible; untested).
+# Container runtime CLI. Default: podman. Docker can work, but the Makefile's
+# RUN_FLAGS use the Podman-specific `--userns=keep-id`; Docker users must adjust
+# those flags (drop it / use `--user`). The status digest is runtime-agnostic.
 RALPH_RUNTIME="podman"

@@ -28,7 +28,12 @@ from __future__ import annotations
 
 import re
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+# `datetime.UTC` is only 3.11+; this alias keeps the helper pure-stdlib but
+# compatible back to Python 3.7 — the one intentional divergence from the
+# verbatim original (see ralph-harness/README.md "drift note").
+UTC = timezone.utc  # noqa: UP017  intentional: datetime.UTC is 3.11+; kit targets 3.7+
 
 BUFFER_SECONDS = 120  # wait past the stated reset so the window has actually rolled over
 MAX_WAIT_SECONDS = 6 * 3600  # misparse guard; also covers the 5h session window with margin.

@@ -16,8 +16,10 @@ CLAUDE_DIR := $(WORKSPACE)/.ralph/claude-home
 SCRIPTS    := ralph-harness/scripts
 
 # Common run flags for every container target.
-#   --userns=keep-id  map host UID/GID into the container so files written under
-#                     /workspace come out owned by you on the host.
+#   --userns=keep-id  PODMAN-SPECIFIC: map host UID/GID into the container so
+#                     files written under /workspace come out owned by you on the
+#                     host. Docker handles this differently — if RUNTIME=docker,
+#                     drop this flag (or replace with `--user $(id -u):$(id -g)`).
 #   -e RALPH_MODEL    forward the host RALPH_MODEL (if set) to the loop.
 #   -v workspace      the project tree.
 #   -v claude-home    persists Claude Code auth across runs.

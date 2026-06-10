@@ -45,22 +45,35 @@ set -uo pipefail
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # --- config loading: environment > ralph.conf > built-in default ------------
-# Snapshot any RALPH_* already set in the environment; these win over the file.
-declare -A _env_override
-while IFS= read -r _v; do
-  [ -n "$_v" ] && _env_override["$_v"]="${!_v}"
-done < <(compgen -v | grep '^RALPH_' || true)
+# Snapshot any RALPH_* already set in the environment as re-runnable assignments;
+# these win over the file. Uses printf %q + eval rather than an associative
+# array so the kit also runs on bash 3.2 (e.g. stock macOS).
+_env_override=$(
+  while IFS= read -r _v; do
+    printf '%s=%q\n' "$_v" "${!_v}"
+  done < <(compgen -v | grep '^RALPH_' || true)
+)
 
 conf="${RALPH_CONF:-ralph.conf}"
 # shellcheck disable=SC1090
 [ -f "$conf" ] && . "$conf"
 
-# Re-apply environment overrides on top of whatever the file set.
-for _v in "${!_env_override[@]}"; do
-  printf -v "$_v" '%s' "${_env_override[$_v]}"
-done
+# Re-apply the environment overrides on top of whatever the file set.
+[ -n "$_env_override" ] && eval "$_env_override"
 
-cd "${RALPH_WORKSPACE:-$PWD}"
+cd "${RALPH_WORKSPACE:-$PWD}" || {
+  echo "ralph: cannot cd into RALPH_WORKSPACE='${RALPH_WORKSPACE:-$PWD}' — refusing to start" >&2
+  exit 1
+}
+
+# Preflight the external commands the loop assumes, so a missing tool fails fast
+# with a clear message instead of an opaque error mid-turn.
+for _cmd in git claude timeout; do
+  command -v "$_cmd" >/dev/null 2>&1 || {
+    echo "ralph: required command '$_cmd' not found on PATH — refusing to start" >&2
+    exit 1
+  }
+done
 
 once=0
 [ "${1:-}" = "--once" ] && once=1

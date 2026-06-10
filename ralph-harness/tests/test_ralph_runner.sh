@@ -189,6 +189,32 @@ ec=$?
   || bad "usage-limit miscounted as stall (exit=$ec)"
 cleanup
 
+# --- 10. ralph.conf is sourced; an env var of the same name overrides it ----
+new_ws
+cat >"$STUB/count-1.sh" <<'S'
+git commit --allow-empty -qm t1
+S
+# conf sets a model; the heartbeat should record it (conf applied over default).
+printf 'RALPH_MODEL="from-conf"\n' >"$WS/ralph.conf"
+( cd "$WS" && PATH="$STUB/bin:$PATH" HOME="$HOME_DIR" \
+  RALPH_WORKSPACE="$WS" RALPH_STATE_DIR=.ralph bash "$RALPH" --once >/dev/null 2>&1 )
+python3 - "$WS/.ralph/status.jsonl" from-conf <<'PY' && ok "ralph.conf value is applied" || bad "ralph.conf value not applied"
+import json, sys
+rec = json.loads(open(sys.argv[1]).read().splitlines()[-1])
+sys.exit(0 if rec["model"] == sys.argv[2] else 1)
+PY
+# now an env var of the same name must WIN over the conf file.
+rm -rf "$WS/.ralph"
+( cd "$WS" && PATH="$STUB/bin:$PATH" HOME="$HOME_DIR" \
+  RALPH_WORKSPACE="$WS" RALPH_STATE_DIR=.ralph RALPH_MODEL="from-env" \
+  bash "$RALPH" --once >/dev/null 2>&1 )
+python3 - "$WS/.ralph/status.jsonl" from-env <<'PY' && ok "env var overrides ralph.conf" || bad "env did not override conf"
+import json, sys
+rec = json.loads(open(sys.argv[1]).read().splitlines()[-1])
+sys.exit(0 if rec["model"] == sys.argv[2] else 1)
+PY
+cleanup
+
 echo
 echo "ralph.sh runner tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

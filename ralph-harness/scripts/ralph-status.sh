@@ -12,20 +12,23 @@
 set -uo pipefail
 
 # --- config loading: environment > ralph.conf > built-in default ------------
-declare -A _env_override
-while IFS= read -r _v; do
-  [ -n "$_v" ] && _env_override["$_v"]="${!_v}"
-done < <(compgen -v | grep '^RALPH_' || true)
+# printf %q + eval (not an associative array) so this runs on bash 3.2 too.
+_env_override=$(
+  while IFS= read -r _v; do
+    printf '%s=%q\n' "$_v" "${!_v}"
+  done < <(compgen -v | grep '^RALPH_' || true)
+)
 
 conf="${RALPH_CONF:-ralph.conf}"
 # shellcheck disable=SC1090
 [ -f "$conf" ] && . "$conf"
 
-for _v in "${!_env_override[@]}"; do
-  printf -v "$_v" '%s' "${_env_override[$_v]}"
-done
+[ -n "$_env_override" ] && eval "$_env_override"
 
-cd "${RALPH_WORKSPACE:-$PWD}"
+cd "${RALPH_WORKSPACE:-$PWD}" || {
+  echo "ralph-status: cannot cd into RALPH_WORKSPACE='${RALPH_WORKSPACE:-$PWD}'" >&2
+  exit 1
+}
 
 state_dir=${RALPH_STATE_DIR:-.ralph}
 container=${RALPH_CONTAINER:-ralph-loop}

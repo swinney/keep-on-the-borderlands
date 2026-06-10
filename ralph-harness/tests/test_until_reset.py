@@ -9,7 +9,7 @@ via `python3 ralph-harness/tests/test_until_reset.py`.
 from __future__ import annotations
 
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -21,6 +21,7 @@ from until_reset import (
     seconds_until_reset,
 )
 
+UTC = timezone.utc  # noqa: UP017  intentional: match the 3.7+ helper
 ONE_HOUR = 3600
 HALF_HOUR = 1800
 FLOOR_SECONDS = 60
