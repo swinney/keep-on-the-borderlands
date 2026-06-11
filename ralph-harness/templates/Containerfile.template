@@ -1,0 +1,56 @@
+# Containerfile — Ralph Loop sandbox (template).
+#
+# The container boundary is what makes `claude --dangerously-skip-permissions`
+# acceptable: the agent can do anything, but only to a bind-mounted workspace
+# inside a throwaway container. Built/run with rootless Podman by default (the
+# UID/GID mapping below makes files land owned by you on the host).
+#
+# To adopt: replace ONLY the {{TOOLCHAIN_INSTALL}} block with your project's
+# language/runtime + test/lint tools. Everything else is generic and should
+# need no edits. Optionally change {{BASE_IMAGE}}.
+#
+# PLACEHOLDERS (the closed set):
+#   {{BASE_IMAGE}}         base image (e.g. python:3.12-slim, node:22-bookworm)
+#   {{TOOLCHAIN_INSTALL}}  one RUN block installing your project's deps + the
+#                          exact tools your gate command invokes
+
+FROM {{BASE_IMAGE}}
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8
+
+# Generic system tools the harness itself needs:
+#   git              repo operations from inside the loop
+#   curl, ca-certs   ad-hoc fetches, TLS
+#   tmux             occasionally useful for attaching to a stuck session
+#   nodejs, npm      required to install Claude Code via npm
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        curl \
+        ca-certificates \
+        tmux \
+        nodejs \
+        npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Claude Code, installed globally so `claude` is on PATH for any user.
+RUN npm install -g @anthropic-ai/claude-code
+
+# --- {{TOOLCHAIN_INSTALL}} : PROJECT-SPECIFIC — replace this whole block -----
+# Install your project's runtime and the exact tools your gate command runs
+# (formatter, linter, type-checker, test runner), pinned for reproducible
+# rebuilds. Example (Python): RUN pip install --no-cache-dir ruff mypy pytest
+{{TOOLCHAIN_INSTALL}}
+# --- end project-specific block ---------------------------------------------
+
+# Non-root user whose UID/GID match the invoking host user (override with
+# --build-arg). With rootless Podman this makes files written under /workspace
+# come out owned by you on the host filesystem.
+ARG USER_UID=1000
+ARG USER_GID=1000
+RUN groupadd -g ${USER_GID} claude \
+    && useradd -m -u ${USER_UID} -g ${USER_GID} -s /bin/bash claude
+
+USER claude
+WORKDIR /workspace
+CMD ["bash"]

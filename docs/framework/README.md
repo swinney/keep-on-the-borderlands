@@ -52,6 +52,9 @@ instrument cannot measure.
   unenforceable process layer, with its checklist + instrument teeth-substitutes.
 - **[Quickstart](quickstart.md)** — the one-page "answer-once defaults" a new
   project imports, plus the three pre-action checklists.
+- **[Ralph Harness Kit](../../ralph-harness/README.md)** — the *runnable* Layer-2
+  autonomy wrapper: copyable, config-driven loop runner + container + templates
+  (`ralph-harness/`). This playbook is the *why*; the kit is the *how to run it*.
 
 ## Legend
 
